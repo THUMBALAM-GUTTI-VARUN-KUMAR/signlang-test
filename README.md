@@ -16,6 +16,50 @@ By converting 21-point MediaPipe hand landmark coordinates into normalized skele
 
 ---
 
+## 🖐️ Hand Gestures Guide & Mechanics
+
+### 1. ⚡ One-Gesture Direct Full-Word Signs
+In **One-Gesture Word Mode**, holding any of the following gestures in front of the camera for 1 second will immediately output the full word, speak it aloud, and append it to your sentence:
+
+| Sign | Emoji | Word | Hand Mechanics & Gesture Execution |
+| :--- | :---: | :--- | :--- |
+| **I Love You** | 🤟 | `I LOVE YOU` | Extend **Thumb, Index, and Pinky** fingers up; keep Middle and Ring fingers curled down. |
+| **Hello** | 👋 | `HELLO` | Open **5-finger palm** facing forward upright with fingers spread and thumb extended. |
+| **Good / Awesome** | 👍 | `GOOD` | Make a closed fist with **Thumb pointing straight upward**. |
+| **Bad** | 👎 | `BAD` | Make a closed fist with **Thumb pointing straight downward**. |
+| **Peace / Victory** | ✌️ | `PEACE` | Extend **Index and Middle fingers** in a separated 'V' shape; curl other fingers. |
+| **OK / Perfect** | 👌 | `OK` | Touch **Thumb tip to Index tip** forming a circle; extend Middle, Ring, and Pinky fingers upward. |
+| **Call Me** | 🤙 | `CALL ME` | Extend **Thumb and Pinky** outwards (Shaka sign); keep 3 middle fingers curled. |
+| **Water** | 💧 | `WATER` | Extend **Index, Middle, and Ring fingers** in a 'W' shape; hold Thumb over Pinky. |
+| **Stop** | 🛑 | `STOP` | Extend **4 fingers flat upright** together with thumb folded against palm. |
+| **You** | 👉 | `YOU` | Extend **Index finger straight forward/outward**; keep all other fingers folded. |
+| **Rock On** | 🤘 | `ROCK ON` | Extend **Index and Pinky** fingers upright; fold Thumb across Middle and Ring fingers. |
+| **Yes** | ✊ | `YES` | Form a **closed fist** facing forward; nod fist slightly downward. |
+| **No** | 🤏 | `NO` | Snap **Index and Middle fingers together against Thumb** in a quick pinch gesture. |
+
+---
+
+### 2. 🔤 ASL Alphabet Fingerspelling (A – Z)
+In **Alphabet Spelling Mode**, the system classifies the standard 26 ASL alphabet handshapes in real-time:
+
+| Letter | Handshape & Description | Letter | Handshape & Description |
+| :---: | :--- | :---: | :--- |
+| **A** | Closed fist with thumb resting alongside index finger. | **N** | Fist with thumb tucked under index and middle fingers. |
+| **B** | Flat open hand with 4 fingers straight up, thumb across palm. | **O** | All fingers curved touching thumb tip, forming an 'O' circle. |
+| **C** | Curved hand forming a 'C' shape facing sideways. | **P** | 'K' shape pointing downward with middle finger horizontal. |
+| **D** | Index finger pointing straight up, other fingers touch thumb. | **Q** | 'G' shape pointing downward with thumb and index apart. |
+| **E** | All 4 fingertips curled in, resting on edge of thumb. | **R** | Index and middle fingers crossed over each other. |
+| **F** | Index and thumb touch in circle, other 3 fingers straight up. | **S** | Closed fist with thumb crossed in front of all fingers. |
+| **G** | Index and thumb extended parallel pointing sideways. | **T** | Fist with thumb tucked between index and middle finger. |
+| **H** | Index and middle fingers extended parallel sideways. | **U** | Index and middle fingers straight up held tightly together. |
+| **I** | Pinky finger extended straight up, all other fingers closed. | **V** | Index and middle fingers straight up spread in a 'V' shape. |
+| **J** | Pinky finger traces a 'J' curve in the air. | **W** | Index, middle, and ring fingers extended up in 'W' shape. |
+| **K** | Index up, middle forward at 45 degrees, thumb on middle knuckle. | **X** | Index finger hooked/curved like a pirate's hook. |
+| **L** | 'L' shape formed by extending thumb and index at right angles. | **Y** | Thumb and pinky extended outward (horns), middle 3 closed. |
+| **M** | Fist with thumb tucked under 3 fingers (index, middle, ring). | **Z** | Index finger traces a 'Z' path in the air. |
+
+---
+
 ## ✨ Key Features
 
 ### 1. ⚡ 30+ FPS Zero-Lag Neural Engine
