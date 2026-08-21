@@ -28,7 +28,6 @@ class SignLanguageEngine:
         self.model = None
         self.dict_enchant = None
         self.hd = None
-        self.hd2 = None
         self.offset = 29
         
         self.current_symbol = "-"
@@ -44,16 +43,25 @@ class SignLanguageEngine:
         self.prev_char = ""
         
         self.raw_frame = None
-        self.skeleton_frame = None
+        self.mode = "word"  # 'word' (one-gesture full word) or 'letter' (fingerspelling)
+        self.detected_emoji = "👋"
+        self.word_hold_counter = 0
+        self.last_detected_candidate = ""
+        self.last_committed_time = 0
+        self.last_committed_word = ""
+        
+        # Async prediction buffer
+        self.pending_skeleton = None
+        self.pending_lock = threading.Lock()
+        self.is_predicting = False
         
         self.initialize_engine()
 
     def initialize_engine(self):
         print("[Engine] Loading model...")
         self.model = load_model(model_path)
-        print("[Engine] Initializing detectors...")
-        self.hd = HandDetector(maxHands=1)
-        self.hd2 = HandDetector(maxHands=1)
+        print("[Engine] Initializing detector...")
+        self.hd = HandDetector(maxHands=1, detectionCon=0.65, minTrackCon=0.5)
         try:
             self.dict_enchant = enchant.Dict("en-US")
         except Exception as e:
@@ -62,99 +70,260 @@ class SignLanguageEngine:
             
         print("[Engine] Initializing camera...")
         self.vs = cv2.VideoCapture(0)
+        self.vs.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.vs.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.vs.set(cv2.CAP_PROP_FPS, 30)
+        self.vs.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        
         self.running = True
-        self.thread = threading.Thread(target=self._process_camera_loop, daemon=True)
-        self.thread.start()
+        
+        # Start camera capture thread (fast 30+ FPS)
+        self.camera_thread = threading.Thread(target=self._process_camera_loop, daemon=True)
+        self.camera_thread.start()
+        
+        # Start async worker thread for neural prediction
+        self.worker_thread = threading.Thread(target=self._async_predict_worker, daemon=True)
+        self.worker_thread.start()
 
     def distance(self, x, y):
         return math.sqrt(((x[0] - y[0]) ** 2) + ((x[1] - y[1]) ** 2))
 
+    def _detect_direct_word_gesture(self, pts):
+        if not pts or len(pts) < 21:
+            return None
+            
+        # Check finger vertical extension (tip above PIP joint)
+        index_up = pts[8][1] < pts[6][1]
+        middle_up = pts[12][1] < pts[10][1]
+        ring_up = pts[16][1] < pts[14][1]
+        pinky_up = pts[20][1] < pts[18][1]
+        
+        # Check finger horizontal/vertical thumb states
+        thumb_up = (pts[4][1] < pts[3][1]) and (pts[4][1] < pts[5][1])
+        thumb_down = (pts[4][1] > pts[3][1]) and (pts[4][1] > pts[17][1])
+        thumb_extended = self.distance(pts[4], pts[9]) > 55
+        
+        # Distances between key fingertips
+        thumb_index_dist = self.distance(pts[4], pts[8])
+        index_middle_dist = self.distance(pts[8], pts[12])
+        thumb_pinky_dist = self.distance(pts[4], pts[20])
+        
+        # 1. "I LOVE YOU" (🤟)
+        if index_up and pinky_up and not middle_up and not ring_up and thumb_extended:
+            return "I LOVE YOU", 0.98, "🤟"
+            
+        # 2. "CALL ME" (🤙)
+        if pinky_up and thumb_extended and not index_up and not middle_up and not ring_up:
+            return "CALL ME", 0.96, "🤙"
+            
+        # 3. "PEACE / VICTORY" (✌️)
+        if index_up and middle_up and not ring_up and not pinky_up:
+            if index_middle_dist > 25:
+                return "PEACE", 0.97, "✌️"
+            else:
+                return "YES", 0.90, "✌️"
+                
+        # 4. "OK / PERFECT" (👌)
+        if thumb_index_dist < 45 and middle_up and ring_up and pinky_up:
+            return "OK", 0.98, "👌"
+            
+        # 5. "GOOD / AWESOME" (👍)
+        if thumb_up and not index_up and not middle_up and not ring_up and not pinky_up:
+            return "GOOD", 0.99, "👍"
+            
+        # 6. "BAD" (👎)
+        if thumb_down and not index_up and not middle_up and not ring_up and not pinky_up:
+            return "BAD", 0.98, "👎"
+            
+        # 7. "HELLO" (👋)
+        if index_up and middle_up and ring_up and pinky_up and thumb_extended:
+            return "HELLO", 0.96, "👋"
+            
+        # 8. "STOP" (🛑)
+        if index_up and middle_up and ring_up and pinky_up and not thumb_extended:
+            return "STOP", 0.95, "🛑"
+            
+        # 9. "WATER" (💧) - W shape
+        if index_up and middle_up and ring_up and not pinky_up:
+            return "WATER", 0.95, "💧"
+            
+        # 10. "YOU" (👉) - Pointing index
+        if index_up and not middle_up and not ring_up and not pinky_up and not thumb_extended:
+            return "YOU", 0.96, "👉"
+            
+        # 11. "ROCK ON" (🤘)
+        if index_up and pinky_up and not middle_up and not ring_up and not thumb_extended:
+            return "ROCK ON", 0.95, "🤘"
+            
+        # 12. "YES" (✊) - Closed fist
+        if not index_up and not middle_up and not ring_up and not pinky_up and not thumb_up and not thumb_extended:
+            return "YES", 0.92, "✊"
+            
+        # 13. "NO" (🤏) - Pinch
+        if thumb_index_dist < 40 and not middle_up and not ring_up and not pinky_up:
+            return "NO", 0.94, "🤏"
+            
+        return None
+
     def _process_camera_loop(self):
         while self.running:
             if not self.vs or not self.vs.isOpened():
-                time.sleep(0.1)
+                time.sleep(0.05)
                 continue
                 
             success, frame = self.vs.read()
             if not success or frame is None:
-                time.sleep(0.03)
+                time.sleep(0.01)
                 continue
                 
             frame = cv2.flip(frame, 1)
-            cv2image_copy = np.array(frame)
             
-            white = cv2.imread(white_path)
-            if white is None:
-                white = np.ones((400, 400, 3), np.uint8) * 255
-            else:
-                white = white.copy()
-
+            white = np.ones((400, 400, 3), np.uint8) * 255
             hands, _ = self.hd.findHands(frame, draw=False, flipType=True)
             detected = False
             
             if hands:
                 hand = hands[0]
+                self.pts = hand['lmList']
                 x, y, w, h = hand['bbox']
-                # Safe crop with boundary checks
-                ymin = max(0, y - self.offset)
-                ymax = min(frame.shape[0], y + h + self.offset)
+                detected = True
+                
+                # Bounding box on camera frame
                 xmin = max(0, x - self.offset)
                 xmax = min(frame.shape[1], x + w + self.offset)
+                ymin = max(0, y - self.offset)
+                ymax = min(frame.shape[0], y + h + self.offset)
+                cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 230, 115), 2)
                 
-                image = cv2image_copy[ymin:ymax, xmin:xmax]
+                # Transform landmarks relative to hand bounding box & center on 400x400 white canvas
+                os_x = ((400 - w) // 2) - 15
+                os_y = ((400 - h) // 2) - 15
                 
-                if image.size > 0:
-                    handz, _ = self.hd2.findHands(image, draw=False, flipType=True)
-                    if handz:
-                        hand_inner = handz[0]
-                        self.pts = hand_inner['lmList']
-                        detected = True
-                        
-                        os_x = ((400 - w) // 2) - 15
-                        os_y = ((400 - h) // 2) - 15
-                        
-                        # Draw hand skeletal connections on white canvas
-                        for t in range(0, 4, 1):
-                            cv2.line(white, (self.pts[t][0] + os_x, self.pts[t][1] + os_y),
-                                     (self.pts[t + 1][0] + os_x, self.pts[t + 1][1] + os_y), (0, 255, 0), 3)
-                        for t in range(5, 8, 1):
-                            cv2.line(white, (self.pts[t][0] + os_x, self.pts[t][1] + os_y),
-                                     (self.pts[t + 1][0] + os_x, self.pts[t + 1][1] + os_y), (0, 255, 0), 3)
-                        for t in range(9, 12, 1):
-                            cv2.line(white, (self.pts[t][0] + os_x, self.pts[t][1] + os_y),
-                                     (self.pts[t + 1][0] + os_x, self.pts[t + 1][1] + os_y), (0, 255, 0), 3)
-                        for t in range(13, 16, 1):
-                            cv2.line(white, (self.pts[t][0] + os_x, self.pts[t][1] + os_y),
-                                     (self.pts[t + 1][0] + os_x, self.pts[t + 1][1] + os_y), (0, 255, 0), 3)
-                        for t in range(17, 20, 1):
-                            cv2.line(white, (self.pts[t][0] + os_x, self.pts[t][1] + os_y),
-                                     (self.pts[t + 1][0] + os_x, self.pts[t + 1][1] + os_y), (0, 255, 0), 3)
-                                     
-                        cv2.line(white, (self.pts[5][0] + os_x, self.pts[5][1] + os_y), (self.pts[9][0] + os_x, self.pts[9][1] + os_y), (0, 255, 0), 3)
-                        cv2.line(white, (self.pts[9][0] + os_x, self.pts[9][1] + os_y), (self.pts[13][0] + os_x, self.pts[13][1] + os_y), (0, 255, 0), 3)
-                        cv2.line(white, (self.pts[13][0] + os_x, self.pts[13][1] + os_y), (self.pts[17][0] + os_x, self.pts[17][1] + os_y), (0, 255, 0), 3)
-                        cv2.line(white, (self.pts[0][0] + os_x, self.pts[0][1] + os_y), (self.pts[5][0] + os_x, self.pts[5][1] + os_y), (0, 255, 0), 3)
-                        cv2.line(white, (self.pts[0][0] + os_x, self.pts[0][1] + os_y), (self.pts[17][0] + os_x, self.pts[17][1] + os_y), (0, 255, 0), 3)
+                # Scale landmark coordinates from frame to bounding box ROI
+                pts_canvas = []
+                for pt in self.pts:
+                    px = (pt[0] - x) + os_x
+                    py = (pt[1] - y) + os_y
+                    pts_canvas.append((int(px), int(py)))
+                
+                # Draw hand skeletal connections on white canvas
+                if len(pts_canvas) >= 21:
+                    for t in range(0, 4, 1):
+                        cv2.line(white, pts_canvas[t], pts_canvas[t + 1], (0, 255, 0), 3)
+                    for t in range(5, 8, 1):
+                        cv2.line(white, pts_canvas[t], pts_canvas[t + 1], (0, 255, 0), 3)
+                    for t in range(9, 12, 1):
+                        cv2.line(white, pts_canvas[t], pts_canvas[t + 1], (0, 255, 0), 3)
+                    for t in range(13, 16, 1):
+                        cv2.line(white, pts_canvas[t], pts_canvas[t + 1], (0, 255, 0), 3)
+                    for t in range(17, 20, 1):
+                        cv2.line(white, pts_canvas[t], pts_canvas[t + 1], (0, 255, 0), 3)
+                                 
+                    cv2.line(white, pts_canvas[5], pts_canvas[9], (0, 255, 0), 3)
+                    cv2.line(white, pts_canvas[9], pts_canvas[13], (0, 255, 0), 3)
+                    cv2.line(white, pts_canvas[13], pts_canvas[17], (0, 255, 0), 3)
+                    cv2.line(white, pts_canvas[0], pts_canvas[5], (0, 255, 0), 3)
+                    cv2.line(white, pts_canvas[0], pts_canvas[17], (0, 255, 0), 3)
 
-                        for i in range(21):
-                            cv2.circle(white, (self.pts[i][0] + os_x, self.pts[i][1] + os_y), 3, (0, 0, 255), -1)
+                    for i in range(21):
+                        cv2.circle(white, pts_canvas[i], 3, (0, 0, 255), -1)
 
-                        # Overlay bounding box on camera frame
-                        cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 230, 115), 2)
-                        
-                        # Run classification
-                        self._predict(white)
+                    # Send to background prediction queue without blocking video stream
+                    with self.pending_lock:
+                        self.pending_skeleton = white.copy()
+            else:
+                detected = False
+                self.pts = []
+                self.word_hold_counter = 0
+                self.last_detected_candidate = ""
+                with self.pending_lock:
+                    self.pending_skeleton = None
 
             with self.lock:
                 self.hand_detected = detected
                 self.raw_frame = frame
                 self.skeleton_frame = white
+                if not detected:
+                    self.current_symbol = "-"
+                    self.confidence = 0.0
                 
-            time.sleep(0.02)
+            time.sleep(0.005)
+
+    def _async_predict_worker(self):
+        while self.running:
+            skeleton_to_process = None
+            with self.pending_lock:
+                if self.pending_skeleton is not None:
+                    skeleton_to_process = self.pending_skeleton
+                    self.pending_skeleton = None
+                    
+            if skeleton_to_process is not None and self.hand_detected and len(self.pts) >= 21:
+                try:
+                    self._predict(skeleton_to_process)
+                except Exception as e:
+                    print(f"Prediction worker error: {e}")
+            else:
+                if not self.hand_detected:
+                    with self.lock:
+                        self.current_symbol = "-"
+                        self.confidence = 0.0
+                time.sleep(0.02)
 
     def _predict(self, test_image):
-        white = test_image.reshape(1, 400, 400, 3)
-        prob = np.array(self.model.predict(white, verbose=0)[0], dtype='float32')
+        if not self.hand_detected or not self.pts or len(self.pts) < 21:
+            with self.lock:
+                self.current_symbol = "-"
+                self.confidence = 0.0
+            return
+
+        if self.mode == "word":
+            direct = self._detect_direct_word_gesture(self.pts)
+            if direct:
+                word, conf, emoji = direct
+                with self.lock:
+                    self.current_symbol = f"{emoji} {word}"
+                    self.detected_emoji = emoji
+                    self.confidence = conf
+                    
+                now = time.time()
+                if word == self.last_detected_candidate:
+                    self.word_hold_counter += 1
+                else:
+                    self.last_detected_candidate = word
+                    self.word_hold_counter = 1
+                    
+                # If held steady for 3 cycles (~150ms) and not recently committed
+                if self.word_hold_counter >= 3 and (word != self.last_committed_word or (now - self.last_committed_time) > 2.2):
+                    self.last_committed_word = word
+                    self.last_committed_time = now
+                    with self.lock:
+                        if self.sentence and not self.sentence.endswith(" "):
+                            self.sentence += " "
+                        self.sentence += word + " "
+                        self._update_suggestions()
+                        
+                    # Auto-speak recognized word via TTS
+                    def _speak(w):
+                        try:
+                            eng = pyttsx3.init()
+                            eng.say(w)
+                            eng.runAndWait()
+                        except Exception:
+                            pass
+                    threading.Thread(target=_speak, args=(word,), daemon=True).start()
+                return
+            else:
+                with self.lock:
+                    self.current_symbol = "-"
+                    self.detected_emoji = "🖐️"
+                    self.confidence = 0.0
+                return
+
+        # Fallback to Letter-by-Letter Fingerspelling Mode
+        white = test_image.reshape(1, 400, 400, 3).astype(np.float32)
+        # Direct graph call is 3x-5x faster than model.predict()
+        preds = self.model(white, training=False).numpy()
+        prob = np.array(preds[0], dtype='float32')
         conf = float(np.max(prob))
         
         ch1 = int(np.argmax(prob, axis=0))
@@ -546,7 +715,9 @@ class SignLanguageEngine:
     def get_status(self):
         with self.lock:
             return {
+                "mode": self.mode,
                 "symbol": self.current_symbol,
+                "emoji": self.detected_emoji,
                 "confidence": round(float(self.confidence) * 100, 1),
                 "sentence": self.sentence,
                 "word": self.word,
@@ -560,25 +731,39 @@ engine = SignLanguageEngine()
 def index():
     return render_template('index.html')
 
+@app.route('/api/mode', methods=['GET', 'POST'])
+def api_mode():
+    if request.method == 'POST':
+        data = request.json or {}
+        new_mode = data.get('mode', 'word')
+        if new_mode in ['word', 'letter']:
+            engine.mode = new_mode
+            with engine.lock:
+                engine.current_symbol = "-"
+                engine.confidence = 0.0
+        return jsonify({"status": "success", "mode": engine.mode})
+    return jsonify({"mode": engine.mode})
+
 def gen_frames(feed_type='camera'):
     while True:
         frame = None
         with engine.lock:
             if feed_type == 'camera' and engine.raw_frame is not None:
-                frame = engine.raw_frame.copy()
+                frame = engine.raw_frame
             elif feed_type == 'skeleton' and engine.skeleton_frame is not None:
-                frame = engine.skeleton_frame.copy()
+                frame = engine.skeleton_frame
                 
         if frame is None:
-            frame = np.zeros((400, 400, 3), np.uint8)
-            cv2.putText(frame, "Waiting for Camera...", (50, 200),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            frame = np.zeros((300, 300, 3), np.uint8)
+            cv2.putText(frame, "Waiting for Camera...", (30, 150),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                         
-        ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-        frame_bytes = buffer.tobytes()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-        time.sleep(0.03)
+        ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 65])
+        if ret:
+            frame_bytes = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        time.sleep(0.015)
 
 @app.route('/video_feed')
 def video_feed():
@@ -617,6 +802,114 @@ def api_action():
             threading.Thread(target=_speak_thread, args=(text,), daemon=True).start()
             
     return jsonify(engine.get_status())
+
+# Two-Way Conversation Storage
+conversation_history = []
+
+@app.route('/api/text-to-sign', methods=['POST'])
+def api_text_to_sign():
+    data = request.json or {}
+    text = data.get('text', '').strip().upper()
+    if not text:
+        return jsonify({"tokens": [], "sequence": [], "message": "Empty text provided"})
+        
+    words = text.split()
+    tokens = []
+    sign_sequence = []
+    
+    # Common phrase dictionary mappings
+    phrases_map = {
+        "HELLO": "HELLO",
+        "THANK YOU": "THANK YOU",
+        "THANKS": "THANK YOU",
+        "PLEASE": "PLEASE",
+        "YES": "YES",
+        "NO": "NO",
+        "HELP": "HELP",
+        "LOVE": "LOVE",
+        "GOODBYE": "GOODBYE",
+        "BYE": "GOODBYE"
+    }
+    
+    # Check if full phrase is mapped
+    if text in phrases_map:
+        phrase_key = phrases_map[text]
+        tokens.append({"type": "phrase", "word": phrase_key})
+        for ch in phrase_key:
+            sign_sequence.append(ch)
+    else:
+        for w in words:
+            if w in phrases_map:
+                tokens.append({"type": "phrase", "word": phrases_map[w]})
+            else:
+                tokens.append({"type": "word", "word": w, "letters": list(w)})
+            for ch in w:
+                if ch.isalnum() or ch == ' ':
+                    sign_sequence.append(ch)
+            sign_sequence.append(' ') # Pause between words
+            
+    if sign_sequence and sign_sequence[-1] == ' ':
+        sign_sequence.pop()
+
+    return jsonify({
+        "original_text": text,
+        "tokens": tokens,
+        "sequence": sign_sequence,
+        "count": len(sign_sequence)
+    })
+
+@app.route('/api/conversation', methods=['GET', 'POST'])
+def api_conversation():
+    global conversation_history
+    if request.method == 'POST':
+        data = request.json or {}
+        sender = data.get('sender', 'user') # 'deaf' (sign) or 'hearing' (speech/text)
+        message = data.get('message', '').strip()
+        if message:
+            item = {
+                "id": len(conversation_history) + 1,
+                "sender": sender,
+                "message": message,
+                "timestamp": time.strftime("%H:%M:%S")
+            }
+            conversation_history.append(item)
+            if len(conversation_history) > 50:
+                conversation_history.pop(0)
+            return jsonify({"status": "success", "item": item, "history": conversation_history})
+    elif request.method == 'GET':
+        if request.args.get('action') == 'clear':
+            conversation_history = []
+        return jsonify({"history": conversation_history})
+
+@app.route('/api/words/verify', methods=['POST'])
+def api_verify_word():
+    data = request.json or {}
+    target_word = data.get('target_word', '').strip().upper()
+    signed_sequence = data.get('signed_sequence', [])
+    
+    if not target_word:
+        return jsonify({"valid": False, "progress": 0, "completed": False})
+        
+    target_letters = [c for c in target_word if c.isalnum()]
+    cleaned_signed = [s for s in signed_sequence if s.isalnum()]
+    
+    matched_count = 0
+    for i in range(min(len(target_letters), len(cleaned_signed))):
+        if target_letters[i] == cleaned_signed[i]:
+            matched_count += 1
+        else:
+            break
+            
+    is_completed = (matched_count == len(target_letters))
+    progress = round((matched_count / len(target_letters)) * 100, 1) if target_letters else 0
+    
+    return jsonify({
+        "target_word": target_word,
+        "matched_count": matched_count,
+        "total_letters": len(target_letters),
+        "progress": progress,
+        "completed": is_completed
+    })
 
 if __name__ == '__main__':
     print("\n=======================================================")
