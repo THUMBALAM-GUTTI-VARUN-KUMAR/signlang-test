@@ -36,20 +36,27 @@ class SignLanguageEngine:
         self.word = ""
         self.suggestions = []
         self.hand_detected = False
+        self.num_hands_detected = 0
         self.pts = []
+        self.hands_pts = []
         
         self.count = -1
         self.ten_prev_char = [" "] * 10
         self.prev_char = ""
         
         self.raw_frame = None
-        self.mode = "word"  # 'word' (one-gesture full word) or 'letter' (fingerspelling)
-        self.detected_emoji = "👋"
+        self.mode = "word"  # 'word' (one-gesture full word & smart sentences) or 'letter' (classic fingerspelling)
+        self.detected_emoji = "✨"
         self.word_hold_counter = 0
         self.last_detected_candidate = ""
         self.last_committed_time = 0
         self.last_committed_word = ""
         
+        # Custom User Gesture Templates
+        self.custom_gestures_file = os.path.join(os.path.dirname(__file__), 'custom_gestures.json')
+        self.custom_gestures = []
+        self.load_custom_gestures()
+
         # Async prediction buffer
         self.pending_skeleton = None
         self.pending_lock = threading.Lock()
@@ -57,11 +64,52 @@ class SignLanguageEngine:
         
         self.initialize_engine()
 
+    def load_custom_gestures(self):
+        try:
+            if os.path.exists(self.custom_gestures_file):
+                with open(self.custom_gestures_file, 'r', encoding='utf-8') as f:
+                    self.custom_gestures = json.load(f)
+            else:
+                self.custom_gestures = []
+                self.save_custom_gestures()
+        except Exception as e:
+            print(f"[Engine] Error loading custom gestures: {e}")
+            self.custom_gestures = []
+
+    def save_custom_gestures(self):
+        try:
+            with open(self.custom_gestures_file, 'w', encoding='utf-8') as f:
+                json.dump(self.custom_gestures, f, indent=2)
+        except Exception as e:
+            print(f"[Engine] Error saving custom gestures: {e}")
+
+    def normalize_landmarks(self, pts):
+        if not pts or len(pts) < 21:
+            return None
+        bx, by = pts[0][0], pts[0][1]
+        scale = math.hypot(pts[9][0] - bx, pts[9][1] - by)
+        if scale < 10.0:
+            scale = 10.0
+        
+        vec = []
+        for pt in pts:
+            vec.append(round((pt[0] - bx) / scale, 4))
+            vec.append(round((pt[1] - by) / scale, 4))
+        return vec
+
+    def compare_landmark_vectors(self, vec1, vec2):
+        if not vec1 or not vec2 or len(vec1) != len(vec2):
+            return 0.0
+        dist = math.sqrt(sum((a - b) ** 2 for a, b in zip(vec1, vec2)))
+        similarity = max(0.0, 1.0 - (dist / 1.35))
+        return round(similarity, 3)
+
     def initialize_engine(self):
         print("[Engine] Loading model...")
         self.model = load_model(model_path)
-        print("[Engine] Initializing detector...")
-        self.hd = HandDetector(maxHands=1, detectionCon=0.65, minTrackCon=0.5)
+        print("[Engine] Initializing detectors (hd & hd2)...")
+        self.hd = HandDetector(maxHands=2, detectionCon=0.60, minTrackCon=0.5)
+        self.hd2 = HandDetector(maxHands=1, detectionCon=0.60, minTrackCon=0.5)
         try:
             self.dict_enchant = enchant.Dict("en-US")
         except Exception as e:
@@ -91,7 +139,24 @@ class SignLanguageEngine:
     def _detect_direct_word_gesture(self, pts):
         if not pts or len(pts) < 21:
             return None
+
+        # 0. Check User-Trained Custom Gestures First!
+        curr_vec = self.normalize_landmarks(pts)
+        if curr_vec and self.custom_gestures:
+            best_match = None
+            best_score = 0.0
+            for g in self.custom_gestures:
+                g_vec = g.get("vector")
+                if g_vec and isinstance(g_vec, list) and len(g_vec) == 42:
+                    score = self.compare_landmark_vectors(curr_vec, g_vec)
+                    if score > best_score:
+                        best_score = score
+                        best_match = g
+            if best_match and best_score >= 0.90:
+                return best_match["name"], best_score, best_match.get("emoji", "✨")
             
+        hand_scale = max(20.0, self.distance(pts[0], pts[9]))
+        
         # Check finger vertical extension (tip above PIP joint)
         index_up = pts[8][1] < pts[6][1]
         middle_up = pts[12][1] < pts[10][1]
@@ -101,12 +166,11 @@ class SignLanguageEngine:
         # Check finger horizontal/vertical thumb states
         thumb_up = (pts[4][1] < pts[3][1]) and (pts[4][1] < pts[5][1])
         thumb_down = (pts[4][1] > pts[3][1]) and (pts[4][1] > pts[17][1])
-        thumb_extended = self.distance(pts[4], pts[9]) > 55
+        thumb_extended = (self.distance(pts[4], pts[9]) / hand_scale) > 0.48
         
-        # Distances between key fingertips
-        thumb_index_dist = self.distance(pts[4], pts[8])
-        index_middle_dist = self.distance(pts[8], pts[12])
-        thumb_pinky_dist = self.distance(pts[4], pts[20])
+        # Proportional distances between key fingertips
+        thumb_index_ratio = self.distance(pts[4], pts[8]) / hand_scale
+        index_middle_ratio = self.distance(pts[8], pts[12]) / hand_scale
         
         # 1. "I LOVE YOU" (🤟)
         if index_up and pinky_up and not middle_up and not ring_up and thumb_extended:
@@ -117,14 +181,11 @@ class SignLanguageEngine:
             return "CALL ME", 0.96, "🤙"
             
         # 3. "PEACE / VICTORY" (✌️)
-        if index_up and middle_up and not ring_up and not pinky_up:
-            if index_middle_dist > 25:
-                return "PEACE", 0.97, "✌️"
-            else:
-                return "YES", 0.90, "✌️"
+        if index_up and middle_up and not ring_up and not pinky_up and index_middle_ratio > 0.18:
+            return "PEACE", 0.97, "✌️"
                 
         # 4. "OK / PERFECT" (👌)
-        if thumb_index_dist < 45 and middle_up and ring_up and pinky_up:
+        if thumb_index_ratio < 0.42 and middle_up and ring_up and pinky_up:
             return "OK", 0.98, "👌"
             
         # 5. "GOOD / AWESOME" (👍)
@@ -146,24 +207,148 @@ class SignLanguageEngine:
         # 9. "WATER" (💧) - W shape
         if index_up and middle_up and ring_up and not pinky_up:
             return "WATER", 0.95, "💧"
-            
-        # 10. "YOU" (👉) - Pointing index
+
+        # 10. "TABLET / MEDICINE" (💊) - Pill Pinch (Thumb tip to Index tip, others folded)
+        if thumb_index_ratio < 0.35 and not middle_up and not ring_up and not pinky_up:
+            return "TABLET", 0.97, "💊"
+
+        # 11. "FOOD / EAT" (🍲) - Clustered fingertips / tapered handshape
+        tips_clustered = (self.distance(pts[4], pts[8]) / hand_scale < 0.38 and
+                          self.distance(pts[8], pts[12]) / hand_scale < 0.35 and
+                          self.distance(pts[12], pts[16]) / hand_scale < 0.35)
+        if tips_clustered and not index_up and not middle_up and not ring_up and not pinky_up:
+            return "FOOD", 0.96, "🍲"
+
+        # 12. "SLEEP / REST" (🛏️) - Flat hand tilted horizontally/sideways
+        wrist_knuckle_tilt = abs(pts[0][0] - pts[9][0]) > abs(pts[0][1] - pts[9][1]) * 0.75
+        if index_up and middle_up and ring_up and pinky_up and wrist_knuckle_tilt:
+            return "SLEEP", 0.95, "🛏️"
+
+        # 13. "ME / I" (☝️) - Index pointing high/inward
         if index_up and not middle_up and not ring_up and not pinky_up and not thumb_extended:
-            return "YOU", 0.96, "👉"
+            # Check if pointing straight up/high
+            if pts[8][1] < pts[6][1] - 15:
+                return "ME", 0.96, "☝️"
+            else:
+                return "YOU", 0.96, "👉"
             
-        # 11. "ROCK ON" (🤘)
+        # 14. "ROCK ON" (🤘)
         if index_up and pinky_up and not middle_up and not ring_up and not thumb_extended:
             return "ROCK ON", 0.95, "🤘"
             
-        # 12. "YES" (✊) - Closed fist
-        if not index_up and not middle_up and not ring_up and not pinky_up and not thumb_up and not thumb_extended:
-            return "YES", 0.92, "✊"
-            
-        # 13. "NO" (🤏) - Pinch
-        if thumb_index_dist < 40 and not middle_up and not ring_up and not pinky_up:
-            return "NO", 0.94, "🤏"
-            
         return None
+
+    def _detect_two_handed_gesture(self, pts1, pts2):
+        if not pts1 or not pts2 or len(pts1) < 21 or len(pts2) < 21:
+            return None
+
+        # Sort hands left-to-right based on wrist X
+        if pts1[0][0] > pts2[0][0]:
+            left_pts, right_pts = pts2, pts1
+        else:
+            left_pts, right_pts = pts1, pts2
+
+        scale1 = max(20.0, self.distance(left_pts[0], left_pts[9]))
+        scale2 = max(20.0, self.distance(right_pts[0], right_pts[9]))
+        avg_scale = (scale1 + scale2) / 2.0
+
+        # Finger states for left hand
+        l_index_up = left_pts[8][1] < left_pts[6][1]
+        l_middle_up = left_pts[12][1] < left_pts[10][1]
+        l_ring_up = left_pts[16][1] < left_pts[14][1]
+        l_pinky_up = left_pts[20][1] < left_pts[18][1]
+        l_thumb_up = left_pts[4][1] < left_pts[3][1]
+        l_all_up = l_index_up and l_middle_up and l_ring_up and l_pinky_up
+        l_all_down = not l_index_up and not l_middle_up and not l_ring_up and not l_pinky_up
+
+        # Finger states for right hand
+        r_index_up = right_pts[8][1] < right_pts[6][1]
+        r_middle_up = right_pts[12][1] < right_pts[10][1]
+        r_ring_up = right_pts[16][1] < right_pts[14][1]
+        r_pinky_up = right_pts[20][1] < right_pts[18][1]
+        r_thumb_up = right_pts[4][1] < right_pts[3][1]
+        r_all_up = r_index_up and r_middle_up and r_ring_up and r_pinky_up
+        r_all_down = not r_index_up and not r_middle_up and not r_ring_up and not r_pinky_up
+
+        # Key Inter-Hand Distances normalized by hand scale
+        wrist_dist = self.distance(left_pts[0], right_pts[0]) / avg_scale
+        index_tips_dist = self.distance(left_pts[8], right_pts[8]) / avg_scale
+        middle_tips_dist = self.distance(left_pts[12], right_pts[12]) / avg_scale
+        thumb_tips_dist = self.distance(left_pts[4], right_pts[4]) / avg_scale
+        pinky_tips_dist = self.distance(left_pts[20], right_pts[20]) / avg_scale
+
+        # 1. "THANK YOU / NAMASTE / PRAY" (🙏) - Both open upright palms pressed together
+        if l_all_up and r_all_up and wrist_dist < 1.35 and middle_tips_dist < 0.75:
+            return "THANK YOU", 0.99, "🙏"
+
+        # 2. "HOUSE / HOME" (🏠) - Flat hands angled touching at fingertips (Roof ^)
+        if l_all_up and r_all_up and index_tips_dist < 0.65 and wrist_dist > 1.25:
+            return "HOUSE", 0.98, "🏠"
+
+        # 3. "BOOK" (📖) - Open flat palms side-by-side (opening like a book)
+        if l_all_up and r_all_up and pinky_tips_dist < 0.85 and index_tips_dist > 0.9:
+            return "BOOK", 0.97, "📖"
+
+        # 4. "HELP" (🆘) - Thumbs-up fist resting on/near open flat palm
+        fist_on_palm = (r_thumb_up and r_all_down and l_all_up and (self.distance(right_pts[0], left_pts[9]) / avg_scale < 1.4)) or \
+                       (l_thumb_up and l_all_down and r_all_up and (self.distance(left_pts[0], right_pts[9]) / avg_scale < 1.4))
+        if fist_on_palm:
+            return "HELP", 0.99, "🆘"
+
+        # 5. "MORE" (➕) - Both hands with tapered fingertips touching in center
+        l_clustered = self.distance(left_pts[4], left_pts[8]) / scale1 < 0.45 and not l_all_up
+        r_clustered = self.distance(right_pts[4], right_pts[8]) / scale2 < 0.45 and not r_all_up
+        if l_clustered and r_clustered and index_tips_dist < 0.75 and thumb_tips_dist < 0.75:
+            return "MORE", 0.98, "➕"
+
+        # 6. "WORK" (💼) - Both fists stacked/tapping one on top of the other
+        if l_all_down and r_all_down:
+            vert_dist = abs(left_pts[0][1] - right_pts[0][1]) / avg_scale
+            horiz_dist = abs(left_pts[0][0] - right_pts[0][0]) / avg_scale
+            if horiz_dist < 1.0 and vert_dist < 1.6:
+                return "WORK", 0.97, "💼"
+
+        # 7. "FRIEND" (🤝) - Both index fingers hooked/locked in center
+        if l_index_up and not l_middle_up and not l_ring_up and not l_pinky_up and \
+           r_index_up and not r_middle_up and not r_ring_up and not r_pinky_up and index_tips_dist < 0.6:
+            return "FRIEND", 0.97, "🤝"
+
+        # 8. "PLAY" (🎮) - Both hands in Shaka (Y-shapes)
+        l_shaka = l_pinky_up and (self.distance(left_pts[4], left_pts[9]) / scale1 > 0.45) and not l_index_up and not l_middle_up
+        r_shaka = r_pinky_up and (self.distance(right_pts[4], right_pts[9]) / scale2 > 0.45) and not r_index_up and not r_middle_up
+        if l_shaka and r_shaka:
+            return "PLAY", 0.98, "🎮"
+
+        # 9. "FAMILY" (👨‍👩‍👧‍👦) - Both hands in F-shapes touching
+        l_f = (self.distance(left_pts[4], left_pts[8]) / scale1 < 0.42) and l_middle_up and l_ring_up and l_pinky_up
+        r_f = (self.distance(right_pts[4], right_pts[8]) / scale2 < 0.42) and r_middle_up and r_ring_up and r_pinky_up
+        if l_f and r_f and index_tips_dist < 0.8:
+            return "FAMILY", 0.98, "👨‍👩‍👧‍👦"
+
+        return None
+
+    def _draw_skeleton_on_canvas(self, canvas, pts, os_x, os_y, color=(0, 255, 0)):
+        if not pts or len(pts) < 21:
+            return
+        for t in range(0, 4, 1):
+            cv2.line(canvas, (int(pts[t][0] + os_x), int(pts[t][1] + os_y)), (int(pts[t + 1][0] + os_x), int(pts[t + 1][1] + os_y)), color, 3)
+        for t in range(5, 8, 1):
+            cv2.line(canvas, (int(pts[t][0] + os_x), int(pts[t][1] + os_y)), (int(pts[t + 1][0] + os_x), int(pts[t + 1][1] + os_y)), color, 3)
+        for t in range(9, 12, 1):
+            cv2.line(canvas, (int(pts[t][0] + os_x), int(pts[t][1] + os_y)), (int(pts[t + 1][0] + os_x), int(pts[t + 1][1] + os_y)), color, 3)
+        for t in range(13, 16, 1):
+            cv2.line(canvas, (int(pts[t][0] + os_x), int(pts[t][1] + os_y)), (int(pts[t + 1][0] + os_x), int(pts[t + 1][1] + os_y)), color, 3)
+        for t in range(17, 20, 1):
+            cv2.line(canvas, (int(pts[t][0] + os_x), int(pts[t][1] + os_y)), (int(pts[t + 1][0] + os_x), int(pts[t + 1][1] + os_y)), color, 3)
+                     
+        cv2.line(canvas, (int(pts[5][0] + os_x), int(pts[5][1] + os_y)), (int(pts[9][0] + os_x), int(pts[9][1] + os_y)), color, 3)
+        cv2.line(canvas, (int(pts[9][0] + os_x), int(pts[9][1] + os_y)), (int(pts[13][0] + os_x), int(pts[13][1] + os_y)), color, 3)
+        cv2.line(canvas, (int(pts[13][0] + os_x), int(pts[13][1] + os_y)), (int(pts[17][0] + os_x), int(pts[17][1] + os_y)), color, 3)
+        cv2.line(canvas, (int(pts[0][0] + os_x), int(pts[0][1] + os_y)), (int(pts[5][0] + os_x), int(pts[5][1] + os_y)), color, 3)
+        cv2.line(canvas, (int(pts[0][0] + os_x), int(pts[0][1] + os_y)), (int(pts[17][0] + os_x), int(pts[17][1] + os_y)), color, 3)
+
+        for i in range(21):
+            cv2.circle(canvas, (int(pts[i][0] + os_x), int(pts[i][1] + os_y)), 2, (0, 0, 255), 1)
 
     def _process_camera_loop(self):
         while self.running:
@@ -182,58 +367,61 @@ class SignLanguageEngine:
             hands, _ = self.hd.findHands(frame, draw=False, flipType=True)
             detected = False
             
-            if hands:
-                hand = hands[0]
-                self.pts = hand['lmList']
-                x, y, w, h = hand['bbox']
+            if hands and len(hands) > 0:
                 detected = True
+                self.num_hands_detected = len(hands)
+                sorted_hands = sorted(hands, key=lambda h: h['bbox'][0])
+                self.hands_pts = [h['lmList'] for h in sorted_hands if 'lmList' in h and len(h['lmList']) >= 21]
                 
-                # Bounding box on camera frame
-                xmin = max(0, x - self.offset)
-                xmax = min(frame.shape[1], x + w + self.offset)
+                # Draw bounding boxes on video frame
+                for idx, h_item in enumerate(sorted_hands):
+                    hx, hy, hw, hh = h_item['bbox']
+                    color = (0, 230, 115) if idx == 0 else (255, 180, 0)
+                    cv2.rectangle(frame, (hx, hy), (hx + hw, hy + hh), color, 2)
+                    cv2.putText(frame, f"Hand {idx+1}", (hx, max(20, hy - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+
+                hand = hands[0]
+                x, y, w, h = hand['bbox']
                 ymin = max(0, y - self.offset)
                 ymax = min(frame.shape[0], y + h + self.offset)
-                cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 230, 115), 2)
+                xmin = max(0, x - self.offset)
+                xmax = min(frame.shape[1], x + w + self.offset)
                 
-                # Transform landmarks relative to hand bounding box & center on 400x400 white canvas
-                os_x = ((400 - w) // 2) - 15
-                os_y = ((400 - h) // 2) - 15
-                
-                # Scale landmark coordinates from frame to bounding box ROI
-                pts_canvas = []
-                for pt in self.pts:
-                    px = (pt[0] - x) + os_x
-                    py = (pt[1] - y) + os_y
-                    pts_canvas.append((int(px), int(py)))
-                
-                # Draw hand skeletal connections on white canvas
-                if len(pts_canvas) >= 21:
-                    for t in range(0, 4, 1):
-                        cv2.line(white, pts_canvas[t], pts_canvas[t + 1], (0, 255, 0), 3)
-                    for t in range(5, 8, 1):
-                        cv2.line(white, pts_canvas[t], pts_canvas[t + 1], (0, 255, 0), 3)
-                    for t in range(9, 12, 1):
-                        cv2.line(white, pts_canvas[t], pts_canvas[t + 1], (0, 255, 0), 3)
-                    for t in range(13, 16, 1):
-                        cv2.line(white, pts_canvas[t], pts_canvas[t + 1], (0, 255, 0), 3)
-                    for t in range(17, 20, 1):
-                        cv2.line(white, pts_canvas[t], pts_canvas[t + 1], (0, 255, 0), 3)
-                                 
-                    cv2.line(white, pts_canvas[5], pts_canvas[9], (0, 255, 0), 3)
-                    cv2.line(white, pts_canvas[9], pts_canvas[13], (0, 255, 0), 3)
-                    cv2.line(white, pts_canvas[13], pts_canvas[17], (0, 255, 0), 3)
-                    cv2.line(white, pts_canvas[0], pts_canvas[5], (0, 255, 0), 3)
-                    cv2.line(white, pts_canvas[0], pts_canvas[17], (0, 255, 0), 3)
+                cropped = frame[ymin:ymax, xmin:xmax]
+                self.pts = []
+                if cropped.size > 0:
+                    try:
+                        handz, _ = self.hd2.findHands(cropped, draw=False, flipType=True)
+                        if handz and len(handz) > 0 and 'lmList' in handz[0]:
+                            self.pts = handz[0]['lmList']
+                    except Exception:
+                        pass
+                        
+                if not self.pts or len(self.pts) < 21:
+                    self.pts = [[int(p[0] - xmin), int(p[1] - ymin)] for p in hand['lmList']]
 
-                    for i in range(21):
-                        cv2.circle(white, pts_canvas[i], 3, (0, 0, 255), -1)
+                # Draw skeleton canvas
+                if len(sorted_hands) == 1 and len(self.pts) >= 21:
+                    os_x = int(((400 - w) // 2) - 15)
+                    os_y = int(((400 - h) // 2) - 15)
+                    self._draw_skeleton_on_canvas(white, self.pts, os_x, os_y, color=(0, 255, 0))
+                elif len(sorted_hands) >= 2 and len(self.hands_pts) >= 2:
+                    # Draw both hands normalized onto the white canvas
+                    for idx, h_pts in enumerate(self.hands_pts[:2]):
+                        color = (0, 230, 115) if idx == 0 else (255, 165, 0)
+                        hx, hy, hw, hh = sorted_hands[idx]['bbox']
+                        os_x = 30 if idx == 0 else 210
+                        scale = 180.0 / max(hw, hh, 1)
+                        norm_pts = [[int((p[0] - hx) * scale), int((p[1] - hy) * scale)] for p in h_pts]
+                        self._draw_skeleton_on_canvas(white, norm_pts, os_x, 100, color=color)
 
-                    # Send to background prediction queue without blocking video stream
-                    with self.pending_lock:
-                        self.pending_skeleton = white.copy()
+                with self.pending_lock:
+                    self.pending_skeleton = white.copy()
             else:
                 detected = False
                 self.pts = []
+                self.hands_pts = []
+                self.num_hands_detected = 0
                 self.word_hold_counter = 0
                 self.last_detected_candidate = ""
                 with self.pending_lock:
@@ -257,7 +445,7 @@ class SignLanguageEngine:
                     skeleton_to_process = self.pending_skeleton
                     self.pending_skeleton = None
                     
-            if skeleton_to_process is not None and self.hand_detected and len(self.pts) >= 21:
+            if skeleton_to_process is not None and self.hand_detected:
                 try:
                     self._predict(skeleton_to_process)
                 except Exception as e:
@@ -270,16 +458,17 @@ class SignLanguageEngine:
                 time.sleep(0.02)
 
     def _predict(self, test_image):
-        if not self.hand_detected or not self.pts or len(self.pts) < 21:
+        if not self.hand_detected:
             with self.lock:
                 self.current_symbol = "-"
                 self.confidence = 0.0
             return
 
-        if self.mode == "word":
-            direct = self._detect_direct_word_gesture(self.pts)
-            if direct:
-                word, conf, emoji = direct
+        # 1. Dual-Handed Sign Recognition (when 2 hands are visible)
+        if len(self.hands_pts) >= 2:
+            dual_res = self._detect_two_handed_gesture(self.hands_pts[0], self.hands_pts[1])
+            if dual_res:
+                word, conf, emoji = dual_res
                 with self.lock:
                     self.current_symbol = f"{emoji} {word}"
                     self.detected_emoji = emoji
@@ -292,8 +481,39 @@ class SignLanguageEngine:
                     self.last_detected_candidate = word
                     self.word_hold_counter = 1
                     
-                # If held steady for 3 cycles (~150ms) and not recently committed
-                if self.word_hold_counter >= 3 and (word != self.last_committed_word or (now - self.last_committed_time) > 2.2):
+                if self.word_hold_counter >= 8:
+                    if word != self.last_committed_word or (now - self.last_committed_time) > 2.0:
+                        self.last_committed_word = word
+                        self.last_committed_time = now
+                        with self.lock:
+                            if self.sentence and not self.sentence.endswith(" "):
+                                self.sentence += " "
+                            self.sentence += word + " "
+                            self._update_suggestions()
+                return
+
+        if not self.pts or len(self.pts) < 21:
+            return
+
+        # 2. Check direct single-hand full-word & daily-needs micro-gestures
+        direct = self._detect_direct_word_gesture(self.pts)
+        if direct and (self.mode == "word" or direct[1] >= 0.94):
+            word, conf, emoji = direct
+            with self.lock:
+                self.current_symbol = f"{emoji} {word}"
+                self.detected_emoji = emoji
+                self.confidence = conf
+                
+            now = time.time()
+            if word == self.last_detected_candidate:
+                self.word_hold_counter += 1
+            else:
+                self.last_detected_candidate = word
+                self.word_hold_counter = 1
+                
+            # Responsive hold threshold (8 cycles ~400ms) to commit word into sentence chain
+            if self.word_hold_counter >= 8:
+                if word != self.last_committed_word or (now - self.last_committed_time) > 2.0:
                     self.last_committed_word = word
                     self.last_committed_time = now
                     with self.lock:
@@ -301,23 +521,13 @@ class SignLanguageEngine:
                             self.sentence += " "
                         self.sentence += word + " "
                         self._update_suggestions()
-                        
-                    # Auto-speak recognized word via TTS
-                    def _speak(w):
-                        try:
-                            eng = pyttsx3.init()
-                            eng.say(w)
-                            eng.runAndWait()
-                        except Exception:
-                            pass
-                    threading.Thread(target=_speak, args=(word,), daemon=True).start()
-                return
-            else:
-                with self.lock:
-                    self.current_symbol = "-"
-                    self.detected_emoji = "🖐️"
-                    self.confidence = 0.0
-                return
+            return
+        elif self.mode == "word":
+            with self.lock:
+                self.current_symbol = "-"
+                self.detected_emoji = "🖐️"
+                self.confidence = 0.0
+            return
 
         # Fallback to Letter-by-Letter Fingerspelling Mode
         white = test_image.reshape(1, 400, 400, 3).astype(np.float32)
@@ -639,45 +849,61 @@ class SignLanguageEngine:
             if (self.pts[0][0] > self.pts[8][0] and self.pts[0][0] > self.pts[12][0] and self.pts[0][0] > self.pts[16][0] and self.pts[0][0] > self.pts[20][0]) and (self.pts[4][1] < self.pts[8][1] and self.pts[4][1] < self.pts[12][1] and self.pts[4][1] < self.pts[16][1] and self.pts[4][1] < self.pts[20][1]) and (self.pts[4][1] < self.pts[6][1] and self.pts[4][1] < self.pts[10][1] and self.pts[4][1] < self.pts[14][1] and self.pts[4][1] < self.pts[18][1]):
                 char_res = 'Backspace'
 
-        if char_res == "next" and self.prev_char != "next":
-            prev_idx = (self.count - 2) % 10
-            if self.ten_prev_char[prev_idx] != "next":
-                if self.ten_prev_char[prev_idx] == "Backspace":
-                    self.sentence = self.sentence[0:-1]
+        with self.lock:
+            if char_res == "next" and self.prev_char != "next":
+                prev_idx = (self.count - 2) % 10
+                if self.ten_prev_char[prev_idx] != "next":
+                    if self.ten_prev_char[prev_idx] == "Backspace":
+                        self.sentence = self.sentence[0:-1]
+                    else:
+                        self.sentence += self.ten_prev_char[prev_idx]
                 else:
-                    self.sentence += self.ten_prev_char[prev_idx]
-            else:
-                curr_idx = (self.count - 0) % 10
-                if self.ten_prev_char[curr_idx] != "Backspace":
-                    self.sentence += self.ten_prev_char[curr_idx]
+                    curr_idx = (self.count - 0) % 10
+                    if self.ten_prev_char[curr_idx] != "Backspace":
+                        self.sentence += self.ten_prev_char[curr_idx]
 
-        if char_res == "  " and self.prev_char != "  ":
-            self.sentence += " "
+            if char_res == "  " and self.prev_char != "  ":
+                self.sentence += " "
 
-        self.prev_char = char_res
-        self.current_symbol = char_res
-        self.confidence = conf
-        self.count += 1
-        self.ten_prev_char[self.count % 10] = char_res
+            self.prev_char = char_res
+            self.current_symbol = char_res
+            self.confidence = conf
+            self.count += 1
+            self.ten_prev_char[self.count % 10] = char_res
 
-        # Calculate word suggestions
-        sugg = []
-        if len(self.sentence.strip()) != 0:
-            st = self.sentence.rfind(" ")
-            ed = len(self.sentence)
-            word = self.sentence[st + 1:ed]
-            self.word = word
-            if len(word.strip()) != 0 and self.dict_enchant:
-                try:
-                    sugg = self.dict_enchant.suggest(word)[:4]
-                except Exception:
-                    pass
-        self.suggestions = sugg
+            # Calculate word suggestions
+            sugg = []
+            if len(self.sentence.strip()) != 0:
+                st = self.sentence.rfind(" ")
+                ed = len(self.sentence)
+                word = self.sentence[st + 1:ed]
+                self.word = word
+                if len(word.strip()) != 0 and self.dict_enchant:
+                    try:
+                        sugg = self.dict_enchant.suggest(word)[:4]
+                    except Exception:
+                        pass
+            self.suggestions = sugg
 
     def add_char(self, char):
         with self.lock:
             if char == "Backspace":
-                self.sentence = self.sentence[:-1]
+                if self.mode == "word":
+                    # In Word Mode, backspace removes the entire last word token
+                    trimmed = self.sentence.strip()
+                    if trimmed:
+                        last_space = trimmed.rfind(" ")
+                        if last_space == -1:
+                            self.sentence = ""
+                        else:
+                            self.sentence = trimmed[:last_space + 1] + " "
+                    else:
+                        self.sentence = ""
+                else:
+                    self.sentence = self.sentence[:-1]
+                self.last_committed_word = ""
+                self.last_detected_candidate = ""
+                self.word_hold_counter = 0
             elif char == "Space":
                 self.sentence += " "
             else:
@@ -698,6 +924,9 @@ class SignLanguageEngine:
             self.sentence = ""
             self.word = ""
             self.suggestions = []
+            self.last_committed_word = ""
+            self.last_detected_candidate = ""
+            self.word_hold_counter = 0
 
     def _update_suggestions(self):
         sugg = []
@@ -714,20 +943,30 @@ class SignLanguageEngine:
 
     def get_status(self):
         with self.lock:
+            tokens = [t.strip().upper() for t in self.sentence.split() if t.strip()]
+            polished = polish_asl_sentence(tokens, tone="natural") if tokens else ""
             return {
                 "mode": self.mode,
                 "symbol": self.current_symbol,
                 "emoji": self.detected_emoji,
                 "confidence": round(float(self.confidence) * 100, 1),
                 "sentence": self.sentence,
+                "raw_tokens": tokens,
+                "polished_sentence": polished,
                 "word": self.word,
                 "suggestions": self.suggestions,
-                "hand_detected": self.hand_detected
+                "hand_detected": self.hand_detected,
+                "num_hands_detected": self.num_hands_detected
             }
 
 engine = SignLanguageEngine()
 
 @app.route('/')
+def landing():
+    return render_template('landing.html')
+
+@app.route('/app')
+@app.route('/studio')
 def index():
     return render_template('index.html')
 
@@ -909,6 +1148,439 @@ def api_verify_word():
         "total_letters": len(target_letters),
         "progress": progress,
         "completed": is_completed
+    })
+
+# ==========================================
+# CUSTOM GESTURE STUDIO ENDPOINTS
+# ==========================================
+@app.route('/api/custom_gestures', methods=['GET', 'POST'])
+def api_custom_gestures():
+    if request.method == 'GET':
+        return jsonify({
+            "gestures": engine.custom_gestures,
+            "count": len(engine.custom_gestures)
+        })
+    elif request.method == 'POST':
+        data = request.json or {}
+        name = data.get('name', '').strip().upper()
+        emoji = data.get('emoji', '✨').strip() or '✨'
+        phrase = data.get('phrase', name).strip() or name
+        vector = data.get('vector')
+        
+        if not name:
+            return jsonify({"status": "error", "message": "Gesture name is required."}), 400
+            
+        if not vector or len(vector) != 42:
+            with engine.lock:
+                pts = list(engine.pts)
+            vector = engine.normalize_landmarks(pts)
+            if not vector or len(vector) != 42:
+                return jsonify({"status": "error", "message": "No hand detected in camera. Please show your hand."}), 400
+
+        # Update if exists, or append new
+        existing = next((g for g in engine.custom_gestures if g["name"] == name), None)
+        if existing:
+            existing["emoji"] = emoji
+            existing["phrase"] = phrase
+            existing["vector"] = vector
+            existing["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            engine.custom_gestures.append({
+                "name": name,
+                "emoji": emoji,
+                "phrase": phrase,
+                "vector": vector,
+                "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
+            })
+            
+        engine.save_custom_gestures()
+        return jsonify({
+            "status": "success",
+            "message": f"Gesture '{name}' successfully registered!",
+            "gestures": engine.custom_gestures
+        })
+
+@app.route('/api/custom_gestures/<name>', methods=['DELETE'])
+def api_delete_custom_gesture(name):
+    target = name.strip().upper()
+    engine.custom_gestures = [g for g in engine.custom_gestures if g["name"].upper() != target]
+    engine.save_custom_gestures()
+    return jsonify({
+        "status": "success",
+        "message": f"Gesture '{target}' deleted successfully.",
+        "gestures": engine.custom_gestures
+    })
+
+# ==========================================
+# MULTI-GESTURE SENTENCE & GRAMMAR POLISHER
+# ==========================================
+def polish_asl_sentence(tokens, tone="natural"):
+    if not tokens:
+        return ""
+    
+    cleaned = [t.strip().upper() for t in tokens if t.strip()]
+    if not cleaned:
+        return ""
+
+    joined = " ".join(cleaned)
+    
+    patterns = {
+        # Greetings & Introductions
+        "HELLO": "Hello!",
+        "HELLO YOU": "Hello, good to see you!",
+        "HELLO YOU GOOD": "Hello, it is wonderful to see you!",
+        "HELLO HOW YOU": "Hello! How are you doing?",
+        # 1. Greetings & Introductions
+        "HELLO": "Hello!",
+        "HELLO HOW YOU": "Hello, how are you doing today?",
+        "NICE MEET YOU": "It is very nice to meet you.",
+        "GOOD MORNING": "Good morning, hope you have a great day!",
+        "GOOD AFTERNOON": "Good afternoon!",
+        "GOOD NIGHT": "Good night, have a restful sleep.",
+        "WHAT YOUR NAME": "What is your name?",
+        "HELLO MY NAME": "Hello, my name is",
+        "SEE YOU LATER": "See you later!",
+        "HAVE GOOD DAY": "Have a wonderful day ahead!",
+
+        # 2. Medical & Emergency Assistance (10 Sentences)
+        "TABLET": "Tablet / Medicine.",
+        "MEDICINE": "Medicine.",
+        "ME TABLET": "Please bring me my tablet / medicine.",
+        "ME MEDICINE": "Please bring me my medicine.",
+        "ME WANT TABLET": "I need to take my medicine tablet, please.",
+        "ME NEED TABLET": "I urgently need to take my tablet / medicine.",
+        "TABLET WATER": "Please bring me my tablet / medicine with a glass of water.",
+        "HELP TABLET": "Urgent: I need my medicine tablet immediately!",
+        "HELP MEDICINE": "Urgent: I need my medicine immediately!",
+        "CALL DOCTOR": "Please call a doctor right away!",
+        "WHERE HOSPITAL": "Where is the nearest hospital or clinic?",
+        "ME SICK": "I am feeling sick and unwell, I need help.",
+
+        # 3. Food, Drink & Daily Nutrition (10 Sentences)
+        "WATER": "Water.",
+        "FOOD": "Food / Meal.",
+        "WATER PLEASE": "Could I please have a glass of water?",
+        "FOOD PLEASE": "Could I please have some food?",
+        "ME HUNGRY": "I am feeling very hungry.",
+        "ME THIRSTY": "I am feeling thirsty.",
+        "ME WANT FOOD": "I would like to have some food, please.",
+        "ME WANT WATER": "Could I please have some water to drink?",
+        "MORE WATER": "Could I please have some more water?",
+        "MORE FOOD": "Could I please have some more food?",
+        "FOOD WATER": "Could I please have both food and water?",
+        "WHERE WATER": "Where can I find drinking water?",
+        "WHERE FOOD": "Where is the cafeteria / food served?",
+
+        # 4. Restroom, Hygiene & Comfort (6 Sentences)
+        "RESTROOM": "Restroom / Bathroom.",
+        "WHERE RESTROOM": "Excuse me, where is the nearest restroom?",
+        "WHERE BATHROOM": "Excuse me, where is the bathroom?",
+        "WHERE TOILET": "Excuse me, where is the toilet?",
+        "ME WANT RESTROOM": "I need to go to the restroom, please.",
+        "ME SLEEP": "I am feeling exhausted and would like to sleep.",
+        "ME TIRED": "I am feeling very tired.",
+
+        # 5. House, Family & Friendship (8 Sentences)
+        "HOUSE": "House / Home.",
+        "BOOK": "Book / Reading.",
+        "FAMILY": "Family.",
+        "FRIEND": "Friend.",
+        "PLAY": "Play / Recreation.",
+        "ME GO HOUSE": "I would like to go home now.",
+        "FAMILY HOUSE": "My family is at home.",
+        "I LOVE FAMILY": "I love my family very much!",
+        "THANK YOU FRIEND": "Thank you so much, my friend!",
+        "FRIEND COME HOUSE": "My friend is coming to my house.",
+        "WANT READ BOOK": "I would like to read a book.",
+        "PLAY GAME FRIEND": "Let us play a game together, friend!",
+
+        # 6. Work, Tasks & Collaboration (6 Sentences)
+        "WORK": "Work / Job.",
+        "ME WORK": "I am working on my tasks right now.",
+        "ME WORK HOUSE": "I am working from home today.",
+        "HELP WORK": "Could you please help me with this work?",
+        "MORE WORK": "There is more work to be completed.",
+        "STOP WORK": "Let us take a break and stop working for now.",
+
+        # 7. Polite Expressions & Social Needs (10 Sentences)
+        "HELP ME": "Please help me!",
+        "HELP ME PLEASE": "Please help me, I need assistance.",
+        "PLEASE HELP": "Could you please help me?",
+        "THANK YOU": "Thank you so much!",
+        "THANK YOU VERY MUCH": "Thank you very much for your kind help!",
+        "YOU WELCOME": "You are very welcome!",
+        "I LOVE YOU": "I love you so much!",
+        "CALL ME": "Please call me later.",
+        "PEACE": "Wishing you peace and harmony.",
+        "GOOD": "That sounds great!",
+        "BAD": "That is unfortunate.",
+        "OK": "Everything is okay.",
+        "YES": "Yes, absolutely.",
+        "NO": "No, thank you.",
+        "STOP": "Please stop what you are doing.",
+        "GOODBYE": "Goodbye, take care!"
+    }
+    
+    if joined in patterns:
+        res = patterns[joined]
+    elif joined.startswith("HELLO MY NAME "):
+        name_part = joined[len("HELLO MY NAME "):].strip().title()
+        res = f"Hello! My name is {name_part}."
+    elif joined.startswith("MY NAME "):
+        name_part = joined[len("MY NAME "):].strip().title()
+        res = f"My name is {name_part}."
+    else:
+        # Check custom gesture templates
+        matched_custom = False
+        if hasattr(engine, 'custom_gestures') and engine.custom_gestures:
+            for g in engine.custom_gestures:
+                if g.get("name", "").upper() == joined:
+                    res = g.get("phrase", joined)
+                    matched_custom = True
+                    break
+        
+        if not matched_custom:
+            # Generalized linguistic grammar rules:
+            words = []
+            for w in cleaned:
+                if w == "ME":
+                    words.append("I")
+                elif w == "YOU":
+                    words.append("you")
+                elif w == "WANT":
+                    words.append("would like")
+                elif w == "NEED":
+                    words.append("need")
+                elif w in ("TABLET", "MEDICINE"):
+                    words.append("my medicine")
+                elif w == "FOOD":
+                    words.append("some food")
+                elif w == "SLEEP":
+                    words.append("to rest and sleep")
+                elif w in ("RESTROOM", "BATHROOM", "TOILET"):
+                    words.append("to use the restroom")
+                elif w == "DOCTOR":
+                    words.append("a doctor")
+                elif w == "SICK":
+                    words.append("sick")
+                elif w == "GOOD":
+                    words.append("good")
+                elif w == "BAD":
+                    words.append("bad")
+                elif w == "WATER":
+                    words.append("water")
+                elif w == "HELP":
+                    words.append("help")
+                elif w == "PLEASE":
+                    words.append("please")
+                else:
+                    words.append(w.lower())
+                    
+            text = " ".join(words)
+            if text.startswith("I ") and not any(text.startswith(f"I {v}") for v in ["am", "would like", "need", "have", "can", "will", "love"]):
+                parts = text.split(" ", 1)
+                text = f"I am {parts[1]}"
+            elif text.startswith("you ") and not any(text.startswith(f"you {v}") for v in ["are", "would like", "need", "have", "can"]):
+                parts = text.split(" ", 1)
+                text = f"You are {parts[1]}"
+                
+            text = text[0].upper() + text[1:] if text else ""
+            
+            if text.lower().startswith(("where", "what", "when", "why", "who", "how", "do you", "would you", "is")):
+                if not text.endswith("?"):
+                    text += "?"
+            elif text.lower().startswith(("please help", "help", "hello", "goodbye", "i love you")):
+                if not text.endswith("!"):
+                    text += "!"
+            else:
+                if not text.endswith((".", "!", "?")):
+                    text += "."
+            res = text
+
+    if tone == "polite":
+        if not res.lower().startswith(("could", "please", "excuse me", "thank you")):
+            res = "Please, " + res[0].lower() + res[1:]
+    elif tone == "direct":
+        res = " / ".join(cleaned)
+        
+    return res
+
+# ==========================================
+# Google Gemini AI Sentence Guesser & Predictor
+# ==========================================
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+env_path = os.path.join(current_dir, '.env')
+if os.path.exists(env_path):
+    try:
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.startswith('GEMINI_API_KEY='):
+                    k = line.strip().split('=', 1)[1].strip()
+                    if k:
+                        GEMINI_API_KEY = k
+    except Exception:
+        pass
+
+gemini_cache = {}
+
+def gemini_guess_sentence(tokens, tone="natural", raw_text=""):
+    """
+    Uses Google Gemini 2.5 Flash LLM to guess, complete, and translate recognized sign language
+    tokens / ASL gloss into natural grammatical spoken English with alternatives.
+    """
+    if not tokens and not raw_text:
+        return {
+            "sentence": "",
+            "alternatives": [],
+            "source": "empty",
+            "model": "gemini-2.5-flash"
+        }
+
+    input_key = (tuple(tokens), tone, raw_text.strip())
+    if input_key in gemini_cache:
+        return gemini_cache[input_key]
+
+    tokens_str = ", ".join([f'"{t}"' for t in tokens]) if tokens else f'"{raw_text}"'
+    
+    tone_instructions = {
+        "natural": "Translate into natural, fluent everyday spoken English.",
+        "formal": "Translate into highly polite, professional, and formal English.",
+        "medical": "Translate with emphasis on clear medical / emergency assistance needs.",
+        "casual": "Translate in a warm, friendly, casual conversational tone."
+    }.get(tone.lower(), "Translate into clear, natural spoken English.")
+
+    prompt = f"""You are an expert AI ASL (American Sign Language) and Gestural Communicator translator.
+A deaf or non-verbal individual performed this sequence of recognized sign language gesture tokens: [{tokens_str}].
+
+{tone_instructions}
+1. Guess the full intended natural spoken English sentence.
+2. Provide 3 likely alternative sentence intentions or completions.
+
+Respond strictly with a valid JSON object in this exact schema:
+{{
+  "sentence": "the most likely natural spoken English translation",
+  "alternatives": [
+    "alternative sentence completion 1",
+    "alternative sentence completion 2",
+    "alternative sentence completion 3"
+  ]
+}}"""
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={GEMINI_API_KEY}"
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }],
+        "generationConfig": {
+            "response_mime_type": "application/json",
+            "temperature": 0.2
+        }
+    }
+
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req, timeout=5.0) as response:
+            res = json.loads(response.read().decode('utf-8'))
+            text_resp = res['candidates'][0]['content']['parts'][0]['text']
+            parsed = json.loads(text_resp)
+            result = {
+                "sentence": parsed.get("sentence", ""),
+                "alternatives": parsed.get("alternatives", []),
+                "source": "gemini-flash-lite-latest",
+                "model": "gemini-flash-lite-latest"
+            }
+            gemini_cache[input_key] = result
+            return result
+    except Exception as e:
+        print(f"[Gemini AI Error]: {e}")
+        fallback_sent = polish_asl_sentence(tokens, tone=tone)
+        return {
+            "sentence": fallback_sent,
+            "alternatives": [fallback_sent],
+            "source": f"local-rule-fallback",
+            "model": "rule-based"
+        }
+
+@app.route('/api/ai/status', methods=['GET'])
+def api_ai_status():
+    return jsonify({
+        "status": "connected" if bool(GEMINI_API_KEY) else "no_key",
+        "model": "gemini-2.5-flash",
+        "provider": "Google DeepMind Gemini API"
+    })
+
+@app.route('/api/ai/guess-sentence', methods=['POST'])
+def api_ai_guess_sentence():
+    data = request.json or {}
+    tokens = data.get('tokens', [])
+    tone = data.get('tone', 'natural')
+    raw_text = data.get('text', '')
+    
+    if not tokens and raw_text:
+        tokens = [t.strip().upper() for t in raw_text.split() if t.strip()]
+        
+    ai_result = gemini_guess_sentence(tokens, tone=tone, raw_text=raw_text)
+    return jsonify({
+        "status": "success",
+        "raw_tokens": tokens,
+        "guessed_sentence": ai_result.get("sentence", ""),
+        "alternatives": ai_result.get("alternatives", []),
+        "source": ai_result.get("source", "gemini-2.5-flash"),
+        "model": ai_result.get("model", "gemini-2.5-flash")
+    })
+
+@app.route('/api/sentence/polish', methods=['POST'])
+def api_polish_sentence():
+    data = request.json or {}
+    tokens = data.get('tokens', [])
+    tone = data.get('tone', 'natural')
+    use_ai = data.get('use_ai', True)
+    
+    if not tokens:
+        raw_text = data.get('text', '')
+        if raw_text:
+            tokens = [t.strip().upper() for t in raw_text.split() if t.strip()]
+            
+    if use_ai and GEMINI_API_KEY:
+        ai_res = gemini_guess_sentence(tokens, tone=tone)
+        polished = ai_res.get("sentence") or polish_asl_sentence(tokens, tone)
+        alternatives = ai_res.get("alternatives", [])
+    else:
+        polished = polish_asl_sentence(tokens, tone)
+        alternatives = []
+        
+    return jsonify({
+        "status": "success",
+        "raw": " ".join(tokens),
+        "polished": polished,
+        "alternatives": alternatives,
+        "tokens_count": len(tokens),
+        "source": "gemini-2.5-flash" if (use_ai and GEMINI_API_KEY) else "rule-based"
+    })
+
+@app.route('/api/custom_gestures/capture_live', methods=['GET'])
+def api_capture_live_landmarks():
+    with engine.lock:
+        detected = engine.hand_detected
+        pts = list(engine.pts)
+    
+    if not detected or not pts or len(pts) < 21:
+        return jsonify({
+            "success": False,
+            "message": "No hand detected in camera view. Please hold your hand steady inside the frame."
+        })
+        
+    vec = engine.normalize_landmarks(pts)
+    return jsonify({
+        "success": True,
+        "landmarks_count": len(pts),
+        "vector": vec,
+        "raw_pts": pts
     })
 
 if __name__ == '__main__':

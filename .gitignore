@@ -17,3 +17,6 @@ __pycache__/
 dataset_collection/
 AtoZ_3.1/
 *.log
+
+# Environment variables & secrets
+.env

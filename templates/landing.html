@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignAI - Real-Time Sign Language to Text &amp; Speech Platform</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark-theme landing-body">
+    <!-- Ambient glowing background orbs -->
+    <div class="glow-orb glow-top-left"></div>
+    <div class="glow-orb glow-bottom-right"></div>
+    <div class="glow-orb glow-center-landing"></div>
+
+    <!-- Portal Navigation Bar -->
+    <header class="landing-header">
+        <div class="landing-nav-container">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-hands-asl-interpreting"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>SignAI <span>Platform</span></h1>
+                    <p>AI Sign Language &amp; Speech Ecosystem</p>
+                </div>
+            </div>
+
+            <nav class="landing-nav-links">
+                <a href="#features" class="nav-link"><i class="fa-solid fa-layer-group"></i> Features</a>
+                <a href="#how-it-works" class="nav-link"><i class="fa-solid fa-diagram-project"></i> How It Works</a>
+                <a href="#dictionary" class="nav-link"><i class="fa-solid fa-book-open"></i> Sign Guide</a>
+                <a href="#tech" class="nav-link"><i class="fa-solid fa-microchip"></i> Tech Stack</a>
+            </nav>
+
+            <div class="landing-nav-actions">
+                <div class="status-badge-inline live-pill">
+                    <span class="status-dot green pulse"></span>
+                    <span>Engine Ready</span>
+                </div>
+                <a href="/app" class="btn btn-primary btn-launch-app">
+                    <i class="fa-solid fa-rocket"></i>
+                    <span>Launch Studio</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="landing-hero">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <i class="fa-solid fa-sparkles"></i>
+                <span>Next-Gen Computer Vision &amp; Deep Learning Translation</span>
+            </div>
+
+            <h1 class="hero-title">
+                Bridging Hands &amp; Voices in <span class="gradient-text">Real Time</span>
+            </h1>
+
+            <p class="hero-subtitle">
+                An end-to-end intelligent platform that translates American Sign Language fingerspelling, one-gesture word signs, and custom user gestures into speech — plus two-way visual dialogue for inclusive communication.
+            </p>
+
+            <div class="hero-cta-group">
+                <a href="/app" class="btn btn-primary btn-hero-cta">
+                    <i class="fa-solid fa-video"></i>
+                    <span>Start Live Translation</span>
+                    <i class="fa-solid fa-arrow-right arrow-icon"></i>
+                </a>
+                <a href="#dictionary" class="btn btn-secondary btn-hero-sec">
+                    <i class="fa-solid fa-shapes"></i>
+                    <span>Explore Gestures</span>
+                </a>
+            </div>
+
+            <!-- Quick Metrics Highlights -->
+            <div class="hero-metrics">
+                <div class="metric-card">
+                    <div class="metric-num">26 / 26</div>
+                    <div class="metric-label">ASL Letters (A–Z)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-num">30+ FPS</div>
+                    <div class="metric-label">Real-Time Processing</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-num">12+</div>
+                    <div class="metric-label">One-Gesture Word Signs</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-num">Zero-Latency</div>
+                    <div class="metric-label">Speech &amp; Two-Way Chat</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Hero Visual Demo Card -->
+        <div class="hero-visual">
+            <div class="visual-card">
+                <div class="visual-card-header">
+                    <div class="visual-dots">
+                        <span class="dot red"></span>
+                        <span class="dot yellow"></span>
+                        <span class="dot green"></span>
+                    </div>
+                    <div class="visual-title">Live AI Recognition Preview</div>
+                    <span class="badge-ai"><i class="fa-solid fa-brain"></i> Dual CNN</span>
+                </div>
+
+                <div class="visual-preview-body">
+                    <div class="preview-hand-box">
+                        <div class="preview-skeleton-art">
+                            <svg viewBox="0 0 200 200" class="skeleton-svg">
+                                <!-- Simulated Hand Skeleton Vector -->
+                                <polyline points="100,180 70,140 50,110 35,80 30,60" stroke="#00ff7f" stroke-width="3" fill="none"/>
+                                <polyline points="100,180 85,120 75,80 70,50 65,30" stroke="#00ff7f" stroke-width="3" fill="none"/>
+                                <polyline points="100,180 100,115 100,75 100,45 100,25" stroke="#00ff7f" stroke-width="3" fill="none"/>
+                                <polyline points="100,180 115,120 125,80 130,50 135,30" stroke="#00ff7f" stroke-width="3" fill="none"/>
+                                <polyline points="100,180 130,140 150,110 165,90 170,75" stroke="#00ff7f" stroke-width="3" fill="none"/>
+                                <!-- Red Landmarks -->
+                                <circle cx="100" cy="180" r="4" fill="#ff3366"/>
+                                <circle cx="70" cy="140" r="4" fill="#ff3366"/>
+                                <circle cx="50" cy="110" r="4" fill="#ff3366"/>
+                                <circle cx="35" cy="80" r="4" fill="#ff3366"/>
+                                <circle cx="30" cy="60" r="4" fill="#ff3366"/>
+                                <circle cx="85" cy="120" r="4" fill="#ff3366"/>
+                                <circle cx="75" cy="80" r="4" fill="#ff3366"/>
+                                <circle cx="70" cy="50" r="4" fill="#ff3366"/>
+                                <circle cx="65" cy="30" r="4" fill="#ff3366"/>
+                                <circle cx="100" cy="115" r="4" fill="#ff3366"/>
+                                <circle cx="100" cy="75" r="4" fill="#ff3366"/>
+                                <circle cx="100" cy="45" r="4" fill="#ff3366"/>
+                                <circle cx="100" cy="25" r="4" fill="#ff3366"/>
+                                <circle cx="115" cy="120" r="4" fill="#ff3366"/>
+                                <circle cx="125" cy="80" r="4" fill="#ff3366"/>
+                                <circle cx="130" cy="50" r="4" fill="#ff3366"/>
+                                <circle cx="135" cy="30" r="4" fill="#ff3366"/>
+                                <circle cx="130" cy="140" r="4" fill="#ff3366"/>
+                                <circle cx="150" cy="110" r="4" fill="#ff3366"/>
+                                <circle cx="165" cy="90" r="4" fill="#ff3366"/>
+                                <circle cx="170" cy="75" r="4" fill="#ff3366"/>
+                            </svg>
+                        </div>
+                        <div class="preview-target-badge">
+                            <span class="preview-emoji">🤟</span>
+                            <span class="preview-symbol">I LOVE YOU</span>
+                        </div>
+                    </div>
+
+                    <div class="preview-feedback-box">
+                        <div class="feedback-row">
+                            <span class="feedback-label">Confidence:</span>
+                            <span class="feedback-value text-emerald">99.4%</span>
+                        </div>
+                        <div class="feedback-bar-bg">
+                            <div class="feedback-bar-fill" style="width: 99.4%;"></div>
+                        </div>
+
+                        <div class="feedback-sentence-card">
+                            <div class="sentence-icon"><i class="fa-solid fa-quote-left"></i></div>
+                            <div class="sentence-text">"I love you! It is wonderful to communicate with you."</div>
+                            <button class="btn-sound-anim" title="Audio Speech Active">
+                                <i class="fa-solid fa-volume-high"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="visual-card-footer">
+                    <a href="/app" class="btn btn-emerald btn-full">
+                        <i class="fa-solid fa-play"></i> Open Live Translation Workspace
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Core Capabilities Grid -->
+    <section class="landing-section" id="features">
+        <div class="section-header">
+            <div class="section-tag"><i class="fa-solid fa-cube"></i> Complete Suite</div>
+            <h2 class="section-title">Engineered for Seamless Communication</h2>
+            <p class="section-desc">Six specialized modules working together to empower deaf, hard-of-hearing, and hearing individuals.</p>
+        </div>
+
+        <div class="features-grid">
+            <!-- Feature 1 -->
+            <div class="feature-card">
+                <div class="feature-icon bg-indigo">
+                    <i class="fa-solid fa-font"></i>
+                </div>
+                <h3>Real-Time ASL Alphabet (A–Z)</h3>
+                <p>Dual-stage hand tracking and 8-group CNN neural classification with exact geometric knuckle checks for high fingerspelling accuracy.</p>
+                <div class="feature-tags">
+                    <span>CNN Model</span>
+                    <span>26 Letters</span>
+                    <span>Knuckle Geometry</span>
+                </div>
+            </div>
+
+            <!-- Feature 2 -->
+            <div class="feature-card">
+                <div class="feature-icon bg-emerald">
+                    <i class="fa-solid fa-hand-peace"></i>
+                </div>
+                <h3>One-Gesture Word Recognition</h3>
+                <p>Instantly detects complete conversational words like HELLO, WATER, PEACE, OK, GOOD, BAD, and CALL ME with proportional landmark scaling.</p>
+                <div class="feature-tags">
+                    <span>Instant Signs</span>
+                    <span>Scale-Invariant</span>
+                    <span>Hold-to-Add</span>
+                </div>
+            </div>
+
+            <!-- Feature 3 -->
+            <div class="feature-card">
+                <div class="feature-icon bg-purple">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <h3>Custom Sign Studio</h3>
+                <p>Train your own unique hand gestures in real-time. Capture 42-point landmark vectors and bind them to personalized phrases with zero code changes.</p>
+                <div class="feature-tags">
+                    <span>Custom Vectors</span>
+                    <span>Zero Retraining</span>
+                    <span>Instant Trigger</span>
+                </div>
+            </div>
+
+            <!-- Feature 4 -->
+            <div class="feature-card">
+                <div class="feature-icon bg-blue">
+                    <i class="fa-solid fa-comments"></i>
+                </div>
+                <h3>Two-Way Communication Bridge</h3>
+                <p>Deaf users sign into speech while hearing users speak into visual animated sign language fingerspelling for smooth natural dialogue.</p>
+                <div class="feature-tags">
+                    <span>Speech-to-Sign</span>
+                    <span>Live Transcript</span>
+                    <span>Audio Synthesis</span>
+                </div>
+            </div>
+
+            <!-- Feature 5 -->
+            <div class="feature-card">
+                <div class="feature-icon bg-amber">
+                    <i class="fa-solid fa-pen-nib"></i>
+                </div>
+                <h3>AI Sentence Polisher</h3>
+                <p>Transforms raw sign language gloss chains into fluent grammatical English with tone controls (Natural, Polite, or Direct ASL Gloss).</p>
+                <div class="feature-tags">
+                    <span>ASL Gloss</span>
+                    <span>Grammar Rules</span>
+                    <span>Tone Presets</span>
+                </div>
+            </div>
+
+            <!-- Feature 6 -->
+            <div class="feature-card">
+                <div class="feature-icon bg-rose">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <h3>Interactive Quiz &amp; Practice Lab</h3>
+                <p>Sharpen your sign language spelling skills with interactive challenges, progressive letter verification, and real-time accuracy scoring.</p>
+                <div class="feature-tags">
+                    <span>Gamified Practice</span>
+                    <span>Step Verification</span>
+                    <span>Progress Tracking</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="landing-section bg-surface-alt" id="how-it-works">
+        <div class="section-header">
+            <div class="section-tag"><i class="fa-solid fa-route"></i> Simple &amp; Intuitive</div>
+            <h2 class="section-title">How SignAI Operates</h2>
+            <p class="section-desc">Experience frictionless translation in three simple steps.</p>
+        </div>
+
+        <div class="workflow-grid">
+            <div class="step-card">
+                <div class="step-num">01</div>
+                <div class="step-icon"><i class="fa-solid fa-camera"></i></div>
+                <h4>Position Your Hand</h4>
+                <p>Open the camera workspace. The system detects your hand bounding box with high frame-rate tracking.</p>
+            </div>
+
+            <div class="step-card">
+                <div class="step-num">02</div>
+                <div class="step-icon"><i class="fa-solid fa-network-wired"></i></div>
+                <h4>Neural AI Inference</h4>
+                <p>The 21 landmark skeleton is isolated and classified across 8 neural subgroup branches in real time.</p>
+            </div>
+
+            <div class="step-card">
+                <div class="step-num">03</div>
+                <div class="step-icon"><i class="fa-solid fa-bullhorn"></i></div>
+                <h4>Instant Speech &amp; Text</h4>
+                <p>Words are assembled, spell-checked, polished, and spoken out loud via text-to-speech voice synthesis.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Sign Dictionary & Reference Guide -->
+    <section class="landing-section" id="dictionary">
+        <div class="section-header">
+            <div class="section-tag"><i class="fa-solid fa-book"></i> Interactive Guide</div>
+            <h2 class="section-title">Supported Sign Language Gestures</h2>
+            <p class="section-desc">Explore standard ASL fingerspelling and direct word gestures.</p>
+        </div>
+
+        <div class="dictionary-container">
+            <div class="dict-card">
+                <div class="dict-header">
+                    <h3><i class="fa-solid fa-hand-sparkles text-emerald"></i> Essential One-Gesture Words</h3>
+                    <span class="badge-ai">Instant Detection</span>
+                </div>
+                <div class="dict-chips-grid">
+                    <div class="dict-chip">
+                        <span class="chip-emoji">👋</span>
+                        <span class="chip-title">HELLO</span>
+                        <span class="chip-desc">Open 5 fingers upright</span>
+                    </div>
+                    <div class="dict-chip">
+                        <span class="chip-emoji">🤟</span>
+                        <span class="chip-title">I LOVE YOU</span>
+                        <span class="chip-desc">Thumb, index, pinky extended</span>
+                    </div>
+                    <div class="dict-chip">
+                        <span class="chip-emoji">✌️</span>
+                        <span class="chip-title">PEACE</span>
+                        <span class="chip-desc">Index and middle spread V</span>
+                    </div>
+                    <div class="dict-chip">
+                        <span class="chip-emoji">👌</span>
+                        <span class="chip-title">OK / PERFECT</span>
+                        <span class="chip-desc">Index touches thumb, 3 up</span>
+                    </div>
+                    <div class="dict-chip">
+                        <span class="chip-emoji">👍</span>
+                        <span class="chip-title">GOOD</span>
+                        <span class="chip-desc">Thumbs up fist</span>
+                    </div>
+                    <div class="dict-chip">
+                        <span class="chip-emoji">👎</span>
+                        <span class="chip-title">BAD</span>
+                        <span class="chip-desc">Thumbs down fist</span>
+                    </div>
+                    <div class="dict-chip">
+                        <span class="chip-emoji">💧</span>
+                        <span class="chip-title">WATER</span>
+                        <span class="chip-desc">W-shape 3 fingers</span>
+                    </div>
+                    <div class="dict-chip">
+                        <span class="chip-emoji">🛑</span>
+                        <span class="chip-title">STOP</span>
+                        <span class="chip-desc">4 fingers flat upright</span>
+                    </div>
+                    <div class="dict-chip">
+                        <span class="chip-emoji">🤙</span>
+                        <span class="chip-title">CALL ME</span>
+                        <span class="chip-desc">Thumb &amp; pinky Shaka sign</span>
+                    </div>
+                    <div class="dict-chip">
+                        <span class="chip-emoji">👉</span>
+                        <span class="chip-title">YOU</span>
+                        <span class="chip-desc">Pointing index forward</span>
+                    </div>
+                    <div class="dict-chip">
+                        <span class="chip-emoji">🤘</span>
+                        <span class="chip-title">ROCK ON</span>
+                        <span class="chip-desc">Index &amp; pinky upright</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack Section -->
+    <section class="landing-section bg-surface-alt" id="tech">
+        <div class="section-header">
+            <div class="section-tag"><i class="fa-solid fa-code"></i> Architecture</div>
+            <h2 class="section-title">Built with Cutting-Edge AI Technologies</h2>
+            <p class="section-desc">Robust computer vision and lightweight deep neural architecture.</p>
+        </div>
+
+        <div class="tech-grid">
+            <div class="tech-card">
+                <i class="fa-brands fa-python tech-icon text-amber"></i>
+                <h4>Python &amp; Flask</h4>
+                <p>High-throughput backend server and real-time multipart camera streaming pipeline.</p>
+            </div>
+            <div class="tech-card">
+                <i class="fa-solid fa-brain tech-icon text-indigo"></i>
+                <h4>TensorFlow &amp; Keras</h4>
+                <p>Optimized 8-group CNN model for multi-class skeletal classification.</p>
+            </div>
+            <div class="tech-card">
+                <i class="fa-solid fa-hand tech-icon text-emerald"></i>
+                <h4>MediaPipe &amp; CVZone</h4>
+                <p>21-point 3D hand landmark localization with dual-stage detector ROI cropping.</p>
+            </div>
+            <div class="tech-card">
+                <i class="fa-solid fa-volume-high tech-icon text-rose"></i>
+                <h4>Pyttsx3 &amp; Speech API</h4>
+                <p>Local offline text-to-speech audio synthesis engine for instant natural voice playback.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Banner -->
+    <section class="landing-cta-banner">
+        <div class="cta-banner-content">
+            <h2>Ready to Experience Two-Way Sign Language AI?</h2>
+            <p>Start translating your hand gestures into speech or practice ASL fingerspelling right inside your browser.</p>
+            <a href="/app" class="btn btn-primary btn-cta-large">
+                <i class="fa-solid fa-rocket"></i> Launch Sign Language Studio Now
+            </a>
+        </div>
+    </section>
+
+    <!-- Portal Footer -->
+    <footer class="landing-footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <div class="brand-icon"><i class="fa-solid fa-hands-asl-interpreting"></i></div>
+                <span>SignAI Studio</span>
+            </div>
+            <div class="footer-copy">
+                &copy; 2026 SignAI Platform. Built for Accessible Two-Way Communication.
+            </div>
+            <div class="footer-links">
+                <a href="/app"><i class="fa-solid fa-circle-play"></i> Launch App</a>
+                <a href="#features"><i class="fa-solid fa-cube"></i> Features</a>
+                <a href="#dictionary"><i class="fa-solid fa-book"></i> Guide</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

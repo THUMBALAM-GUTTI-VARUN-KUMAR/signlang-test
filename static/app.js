@@ -53,8 +53,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let previousSymbol = '-';
     let isPolling = false;
     let currentMode = 'word';
+    const chkAutoSpeak = document.getElementById('chk-auto-speak');
+    const gestureRibbonCard = document.getElementById('gesture-ribbon-card');
 
-    // Word Mode Toggle Handler
+    // Recognition Mode Toggle Handler
     async function setRecognitionMode(mode) {
         currentMode = mode;
         if (mode === 'word') {
@@ -62,17 +64,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btnModeLetter) btnModeLetter.classList.remove('active');
             if (hudTitleText) hudTitleText.textContent = 'Detected Word / Sign';
             if (charBoxLabel) charBoxLabel.textContent = 'Active Word';
-            if (metaHelpText) metaHelpText.querySelector('span').textContent = 'Hold any word gesture steady to auto-speak and add to sentence!';
+            if (metaHelpText) metaHelpText.querySelector('span').textContent = 'Hold any word gesture steady to recognize and chain into complete sentences.';
             if (wordCheatsheetBox) wordCheatsheetBox.style.display = 'flex';
             if (suggestionsCard) suggestionsCard.style.display = 'none';
+            if (gestureRibbonCard) gestureRibbonCard.style.display = 'block';
         } else {
             if (btnModeLetter) btnModeLetter.classList.add('active');
             if (btnModeWord) btnModeWord.classList.remove('active');
             if (hudTitleText) hudTitleText.textContent = 'Detected Letter';
-            if (charBoxLabel) charBoxLabel.textContent = 'Letter';
-            if (metaHelpText) metaHelpText.querySelector('span').textContent = 'Hold steady to recognize letter; spell words sequentially.';
+            if (charBoxLabel) charBoxLabel.textContent = 'Character :';
+            if (metaHelpText) metaHelpText.querySelector('span').textContent = 'Hold fingers steady to recognize ASL alphabet letters; spell words sequentially.';
             if (wordCheatsheetBox) wordCheatsheetBox.style.display = 'none';
             if (suggestionsCard) suggestionsCard.style.display = 'block';
+            if (gestureRibbonCard) gestureRibbonCard.style.display = 'none';
         }
 
         try {
@@ -84,8 +88,236 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {}
     }
 
+    // Initialize in Word Mode by default
+    setRecognitionMode('word');
+
     if (btnModeWord) btnModeWord.addEventListener('click', () => setRecognitionMode('word'));
     if (btnModeLetter) btnModeLetter.addEventListener('click', () => setRecognitionMode('letter'));
+
+    // Multi-Gesture Sequence & Sentence Builder State
+    const gestureRibbonTrack = document.getElementById('gesture-ribbon-track');
+    const btnPolishSentence = document.getElementById('btn-polish-sentence');
+    const btnUndoGesture = document.getElementById('btn-undo-gesture');
+    const btnClearRibbon = document.getElementById('btn-clear-ribbon') || document.getElementById('btnClearRibbon');
+    const sentenceToneSelect = document.getElementById('sentence-tone-select');
+
+    // Gemini AI Sentence Guesser State & Handlers
+    const geminiToneSelect = document.getElementById('gemini-tone-select');
+    const btnAiGuess = document.getElementById('btn-ai-guess');
+    const aiAlternativesBox = document.getElementById('ai-alternatives-box');
+    let aiGuessTimeout = null;
+
+    async function triggerGeminiAiGuess(tokens = null, explicitTone = null) {
+        if (!tokens) {
+            tokens = activeGestureSequence.map(g => g.word);
+        }
+        const text = sentenceTextEl.value.trim();
+        if (tokens.length === 0 && !text) {
+            if (aiAlternativesBox) {
+                aiAlternativesBox.innerHTML = '<span class="ai-prompt-hint">🤖 Sign gestures to see real-time Gemini AI sentence guesses and smart completions here...</span>';
+            }
+            return;
+        }
+
+        const tone = explicitTone || (geminiToneSelect ? geminiToneSelect.value : 'natural');
+        if (aiAlternativesBox) {
+            aiAlternativesBox.innerHTML = '<span class="ai-prompt-hint"><i class="fa-solid fa-spinner fa-spin"></i> Gemini 2.5 Flash is generating smart sentence predictions...</span>';
+        }
+
+        try {
+            const res = await fetch('/api/ai/guess-sentence', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tokens, text, tone })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                if (data.guessed_sentence && document.activeElement !== sentenceTextEl) {
+                    sentenceTextEl.value = data.guessed_sentence;
+                }
+                renderAiAlternatives(data.guessed_sentence, data.alternatives || []);
+            }
+        } catch (err) {
+            console.error("AI Guess error:", err);
+            if (aiAlternativesBox) {
+                aiAlternativesBox.innerHTML = '<span class="ai-prompt-hint" style="color: #f87171;">AI temporary offline. Using local polisher.</span>';
+            }
+        }
+    }
+
+    function renderAiAlternatives(primary, alternatives) {
+        if (!aiAlternativesBox) return;
+        aiAlternativesBox.innerHTML = '';
+
+        const allOptions = [];
+        if (primary && !alternatives.includes(primary)) {
+            allOptions.push(primary);
+        }
+        allOptions.push(...alternatives);
+
+        if (allOptions.length === 0) {
+            aiAlternativesBox.innerHTML = '<span class="ai-prompt-hint">No alternatives generated.</span>';
+            return;
+        }
+
+        allOptions.forEach((option, idx) => {
+            const chip = document.createElement('div');
+            chip.className = 'ai-alt-chip';
+            chip.innerHTML = `
+                <span><strong>#${idx + 1}</strong> "${option}"</span>
+                <span class="chip-action-hint"><i class="fa-solid fa-volume-high"></i> Click to Speak</span>
+            `;
+            chip.addEventListener('click', () => {
+                sentenceTextEl.value = option;
+                speakText(option);
+            });
+            aiAlternativesBox.appendChild(chip);
+        });
+    }
+
+    if (btnAiGuess) {
+        btnAiGuess.addEventListener('click', () => triggerGeminiAiGuess());
+    }
+
+    if (geminiToneSelect) {
+        geminiToneSelect.addEventListener('change', () => triggerGeminiAiGuess());
+    }
+
+    let activeGestureSequence = []; // [{ word: 'HELLO', emoji: '👋' }]
+    let lastSentenceVal = '';
+    let noHandTimer = null;
+    let hasAutoPolished = false;
+
+    const GESTURE_EMOJIS = {
+        "HELLO": "👋", "GOOD": "👍", "BAD": "👎", "PEACE": "✌️", "OK": "👌", "YES": "✊", "NO": "🤏",
+        "WATER": "💧", "STOP": "🛑", "CALL ME": "🤙", "YOU": "👉", "ME": "☝️", "ROCK ON": "🤘", "I LOVE YOU": "🤟",
+        "THANK YOU": "🙏", "PLEASE": "🤲", "HELP": "🆘", "FOOD": "🍲", "TABLET": "💊", "MEDICINE": "💊",
+        "WANT": "🤲", "SLEEP": "🛏️", "RESTROOM": "🚻", "MORE": "➕", "FAMILY": "👨‍👩‍👧‍👦", "HOUSE": "🏠", "HOME": "🏠",
+        "FRIEND": "🤝", "BOOK": "📖", "WORK": "💼", "PLAY": "🎮",
+        "HAPPY": "😊", "SAD": "😢", "TIRED": "😴", "WHERE": "📍", "WHAT": "❓",
+        "HOW": "🤔", "WHY": "🧐", "DOCTOR": "🩺", "COFFEE": "☕"
+    };
+
+    function renderGestureRibbon() {
+        if (!gestureRibbonTrack) return;
+        gestureRibbonTrack.innerHTML = '';
+
+        if (activeGestureSequence.length === 0) {
+            gestureRibbonTrack.innerHTML = '<span class="ribbon-placeholder">Show consecutive gestures in camera to chain full sentences...</span>';
+            return;
+        }
+
+        activeGestureSequence.forEach((item, idx) => {
+            const chip = document.createElement('div');
+            chip.className = 'ribbon-chip';
+            chip.innerHTML = `<span class="chip-emoji">${item.emoji || '✨'}</span><span>${item.word}</span>`;
+            gestureRibbonTrack.appendChild(chip);
+
+            if (idx < activeGestureSequence.length - 1) {
+                const arrow = document.createElement('span');
+                arrow.className = 'ribbon-arrow';
+                arrow.innerHTML = '<i class="fa-solid fa-arrow-right"></i>';
+                gestureRibbonTrack.appendChild(arrow);
+            }
+        });
+
+        // Pulsating next sign chip
+        const nextChip = document.createElement('div');
+        nextChip.className = 'next-sign-chip';
+        nextChip.innerHTML = '<i class="fa-solid fa-plus"></i> Next Sign...';
+        gestureRibbonTrack.appendChild(nextChip);
+    }
+
+    if (btnPolishSentence) {
+        btnPolishSentence.addEventListener('click', () => triggerGeminiAiGuess(null, sentenceToneSelect ? sentenceToneSelect.value : 'natural'));
+    }
+
+    if (btnUndoGesture) {
+        btnUndoGesture.addEventListener('click', async () => {
+            if (activeGestureSequence.length > 0) {
+                activeGestureSequence.pop();
+                renderGestureRibbon();
+            }
+            lastSentenceVal = activeGestureSequence.map(item => item.word).join(' ');
+            if (sentenceTextEl) sentenceTextEl.value = lastSentenceVal;
+            await sendAction('add', 'Backspace');
+            triggerGeminiAiGuess();
+        });
+    }
+
+    if (btnClearRibbon) {
+        btnClearRibbon.addEventListener('click', async () => {
+            activeGestureSequence = [];
+            lastSentenceVal = '';
+            if (sentenceTextEl) sentenceTextEl.value = '';
+            renderGestureRibbon();
+            if (aiAlternativesBox) {
+                aiAlternativesBox.innerHTML = '<span class="ai-prompt-hint">🤖 Sign gestures to see real-time Gemini AI sentence guesses and smart completions here...</span>';
+            }
+            await sendAction('clear');
+        });
+    }
+
+    // 50+ Quick Smart Sentences Explorer Handlers
+    document.querySelectorAll('.sentence-quick-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+            const signs = pill.getAttribute('data-signs') || '';
+            const fullSentence = pill.getAttribute('data-sentence') || '';
+            
+            if (signs) {
+                const words = signs.split(/\s+/).filter(w => w.length > 0);
+                activeGestureSequence = words.map(w => {
+                    const cleanW = w.toUpperCase();
+                    return {
+                        word: cleanW,
+                        emoji: GESTURE_EMOJIS[cleanW] || '✨'
+                    };
+                });
+                renderGestureRibbon();
+            }
+            
+            if (fullSentence) {
+                sentenceTextEl.value = fullSentence;
+                speakText(fullSentence);
+                triggerGeminiAiGuess(null);
+            }
+        });
+    });
+
+    // Gesture Shortcuts Guide Tabs Filter
+    document.querySelectorAll('.guide-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.guide-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const filter = btn.getAttribute('data-filter') || 'all';
+
+            document.querySelectorAll('.gesture-guide-item').forEach(item => {
+                const itemType = item.getAttribute('data-type');
+                if (filter === 'all' || itemType === filter) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    });
+
+    // Clicking a Gesture Guide item adds it into active ribbon and triggers voice
+    document.querySelectorAll('.gesture-guide-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const nameEl = item.querySelector('.guide-name');
+            const emojiEl = item.querySelector('.guide-emoji');
+            if (nameEl) {
+                const word = nameEl.textContent.trim().toUpperCase().split('/')[0].trim();
+                const emoji = emojiEl ? emojiEl.textContent.trim() : '✨';
+                
+                activeGestureSequence.push({ word, emoji });
+                renderGestureRibbon();
+                sendAction('add', word);
+                triggerGeminiAiGuess();
+            }
+        });
+    });
 
     // Word Practice State
     let activePractice = null; // { word: 'WATER', letters: ['W','A','T','E','R'], index: 0 }
@@ -107,9 +339,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (tab1Active) {
                         if (data.symbol !== previousSymbol) {
-                            currentCharEl.textContent = data.symbol || '-';
-                            charBoxEl.classList.add('char-bump');
-                            setTimeout(() => charBoxEl.classList.remove('char-bump'), 180);
+                            const sym = data.symbol || '-';
+                            const emoji = GESTURE_EMOJIS[sym.toUpperCase()] || data.detected_emoji || '';
+                            
+                            if (sym !== '-' && emoji && !sym.includes(emoji)) {
+                                currentCharEl.innerHTML = `<span style="font-size: 0.9em; margin-right: 4px;">${emoji}</span><span>${sym}</span>`;
+                            } else {
+                                currentCharEl.textContent = sym;
+                            }
+
+                            if (sym.length > 10) {
+                                currentCharEl.style.fontSize = '15px';
+                            } else if (sym.length > 6) {
+                                currentCharEl.style.fontSize = '18px';
+                            } else if (sym.length > 2) {
+                                currentCharEl.style.fontSize = '24px';
+                            } else {
+                                currentCharEl.style.fontSize = '44px';
+                            }
                             previousSymbol = data.symbol;
                         }
 
@@ -119,14 +366,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         if (data.hand_detected) {
                             handIndicator.className = 'status-dot green pulse';
-                            handText.textContent = 'Hand Active';
+                            if (data.num_hands_detected >= 2) {
+                                handText.textContent = '👐 2 Hands Active';
+                            } else {
+                                handText.textContent = '🖐️ Hand Active';
+                            }
                         } else {
                             handIndicator.className = 'status-dot gray';
                             handText.textContent = 'No Hand';
                         }
 
+                        // Track newly added or cleared words in sentence for gesture ribbon
+                        const currSent = data.sentence || '';
+                        if (currSent !== lastSentenceVal) {
+                            lastSentenceVal = currSent;
+                            const trimmed = currSent.trim();
+                            const words = trimmed ? trimmed.split(/\s+/).filter(w => w.length > 0) : [];
+                            activeGestureSequence = words.map(w => {
+                                const cleanW = w.toUpperCase();
+                                return {
+                                    word: cleanW,
+                                    emoji: GESTURE_EMOJIS[cleanW] || data.detected_emoji || '✨'
+                                };
+                            });
+                            renderGestureRibbon();
+
+                            if (words.length > 0) {
+                                // Debounce real-time Gemini AI Sentence Guess
+                                clearTimeout(aiGuessTimeout);
+                                aiGuessTimeout = setTimeout(() => {
+                                    triggerGeminiAiGuess(words);
+                                }, 450);
+                            } else {
+                                if (aiAlternativesBox) {
+                                    aiAlternativesBox.innerHTML = '<span class="ai-prompt-hint">🤖 Sign gestures to see real-time Gemini AI sentence guesses and smart completions here...</span>';
+                                }
+                            }
+                        }
+
                         if (document.activeElement !== sentenceTextEl) {
-                            sentenceTextEl.value = data.sentence || '';
+                            sentenceTextEl.value = data.polished_sentence || data.sentence || '';
                         }
 
                         if (currentMode === 'letter') {
@@ -857,8 +1136,211 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === chartModal) chartModal.classList.remove('active');
     });
 
-    // Start background status polling and studio
+    // ==========================================
+    // 7. CUSTOM GESTURE STUDIO LOGIC
+    // ==========================================
+    const customGesturesGrid = document.getElementById('custom-gestures-grid');
+    const customGesturesCount = document.getElementById('custom-gestures-count');
+    const customSearchInput = document.getElementById('custom-search-input');
+    const btnRefreshCustom = document.getElementById('btn-refresh-custom');
+    const btnRecordCustomGesture = document.getElementById('btn-record-custom-gesture');
+    const btnTestCustomCapture = document.getElementById('btn-test-custom-capture');
+    const recorderOverlay = document.getElementById('recorder-overlay');
+    const recordCountdown = document.getElementById('record-countdown');
+    const recordCountdownText = document.getElementById('record-countdown-text');
+    const customRecorderStatus = document.getElementById('custom-recorder-status');
+    const customNameInput = document.getElementById('custom-gesture-name');
+    const customEmojiInput = document.getElementById('custom-gesture-emoji');
+    const customPhraseInput = document.getElementById('custom-gesture-phrase');
+
+    let allCustomGestures = [];
+
+    async function fetchCustomGestures() {
+        try {
+            const res = await fetch('/api/custom_gestures');
+            const data = await res.json();
+            allCustomGestures = data.gestures || [];
+            renderCustomGesturesList(allCustomGestures);
+        } catch (e) {
+            console.error("Error fetching custom gestures:", e);
+        }
+    }
+
+    function renderCustomGesturesList(gestures) {
+        if (!customGesturesGrid) return;
+        customGesturesGrid.innerHTML = '';
+        if (customGesturesCount) {
+            customGesturesCount.textContent = `${gestures.length} Gesture${gestures.length === 1 ? '' : 's'}`;
+        }
+
+        if (gestures.length === 0) {
+            customGesturesGrid.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 30px;">No custom gestures yet. Record one using the form on the left!</div>';
+            return;
+        }
+
+        gestures.forEach(g => {
+            const card = document.createElement('div');
+            card.className = 'custom-card';
+            card.innerHTML = `
+                <div class="custom-card-main">
+                    <span class="custom-card-emoji">${g.emoji || '✨'}</span>
+                    <div class="custom-card-details">
+                        <div class="custom-card-name">${g.name}</div>
+                        <div class="custom-card-phrase">"${g.phrase || g.name}"</div>
+                        <div class="custom-card-meta">${g.vector ? '✅ 21 3D Landmarks Trained' : '⚠️ Template Pending'}</div>
+                    </div>
+                </div>
+                <div class="custom-card-actions">
+                    <button class="btn-card-icon speak" title="Speak Phrase">
+                        <i class="fa-solid fa-volume-high"></i>
+                    </button>
+                    <button class="btn-card-icon delete" title="Delete Gesture">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            `;
+
+            card.querySelector('.btn-card-icon.speak').addEventListener('click', () => {
+                speakText(g.phrase || g.name);
+            });
+
+            card.querySelector('.btn-card-icon.delete').addEventListener('click', async () => {
+                if (confirm(`Delete custom gesture "${g.name}"?`)) {
+                    try {
+                        const res = await fetch(`/api/custom_gestures/${encodeURIComponent(g.name)}`, { method: 'DELETE' });
+                        const d = await res.json();
+                        allCustomGestures = d.gestures || [];
+                        renderCustomGesturesList(allCustomGestures);
+                    } catch (err) {
+                        alert("Error deleting gesture.");
+                    }
+                }
+            });
+
+            customGesturesGrid.appendChild(card);
+        });
+    }
+
+    if (customSearchInput) {
+        customSearchInput.addEventListener('input', () => {
+            const query = customSearchInput.value.trim().toUpperCase();
+            if (!query) {
+                renderCustomGesturesList(allCustomGestures);
+            } else {
+                const filtered = allCustomGestures.filter(g => g.name.toUpperCase().includes(query) || (g.phrase && g.phrase.toUpperCase().includes(query)));
+                renderCustomGesturesList(filtered);
+            }
+        });
+    }
+
+    if (btnRefreshCustom) {
+        btnRefreshCustom.addEventListener('click', fetchCustomGestures);
+    }
+
+    async function recordNewCustomGesture() {
+        const name = (customNameInput ? customNameInput.value.trim() : '').toUpperCase();
+        const emoji = (customEmojiInput ? customEmojiInput.value.trim() : '') || '✨';
+        const phrase = (customPhraseInput ? customPhraseInput.value.trim() : '') || name;
+
+        if (!name) {
+            alert("Please enter a Gesture Name (e.g. 'MY NAME IS VARUN' or 'WATER PLEASE')");
+            if (customNameInput) customNameInput.focus();
+            return;
+        }
+
+        if (recorderOverlay) recorderOverlay.classList.add('active');
+        if (customRecorderStatus) customRecorderStatus.textContent = "Hold your hand steady in the camera...";
+
+        // 3-second countdown
+        let count = 3;
+        if (recordCountdown) recordCountdown.textContent = count;
+
+        const countdownInterval = setInterval(async () => {
+            count--;
+            if (count > 0) {
+                if (recordCountdown) recordCountdown.textContent = count;
+            } else {
+                clearInterval(countdownInterval);
+                if (recordCountdown) recordCountdown.textContent = "📸";
+                if (recordCountdownText) recordCountdownText.textContent = "Capturing 3D landmarks...";
+
+                // Fetch live landmarks
+                try {
+                    const capRes = await fetch('/api/custom_gestures/capture_live');
+                    const capData = await capRes.json();
+
+                    if (!capData.success) {
+                        if (recorderOverlay) recorderOverlay.classList.remove('active');
+                        if (customRecorderStatus) {
+                            customRecorderStatus.innerHTML = `<span style="color: #ef4444;">❌ ${capData.message}</span>`;
+                        }
+                        alert(capData.message);
+                        return;
+                    }
+
+                    // Save to backend
+                    const saveRes = await fetch('/api/custom_gestures', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: name,
+                            emoji: emoji,
+                            phrase: phrase,
+                            vector: capData.vector
+                        })
+                    });
+
+                    const saveData = await saveRes.json();
+                    if (recorderOverlay) recorderOverlay.classList.remove('active');
+
+                    if (saveData.status === 'success') {
+                        if (customRecorderStatus) {
+                            customRecorderStatus.innerHTML = `<span style="color: #10b981;">✅ Gesture '${name}' trained &amp; active! Show it to your camera anytime!</span>`;
+                        }
+                        if (customNameInput) customNameInput.value = '';
+                        if (customEmojiInput) customEmojiInput.value = '';
+                        if (customPhraseInput) customPhraseInput.value = '';
+                        allCustomGestures = saveData.gestures || [];
+                        renderCustomGesturesList(allCustomGestures);
+                        speakText(`Custom gesture ${name} registered successfully!`);
+                    } else {
+                        alert(saveData.message || "Failed to save custom gesture.");
+                    }
+                } catch (err) {
+                    if (recorderOverlay) recorderOverlay.classList.remove('active');
+                    alert("Error communicating with gesture server.");
+                }
+            }
+        }, 1000);
+    }
+
+    if (btnRecordCustomGesture) {
+        btnRecordCustomGesture.addEventListener('click', recordNewCustomGesture);
+    }
+
+    if (btnTestCustomCapture) {
+        btnTestCustomCapture.addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/custom_gestures/capture_live');
+                const data = await res.json();
+                if (data.success) {
+                    if (customRecorderStatus) {
+                        customRecorderStatus.innerHTML = `<span style="color: #10b981;">✅ Hand detected! (${data.landmarks_count} landmarks ready to capture)</span>`;
+                    }
+                } else {
+                    if (customRecorderStatus) {
+                        customRecorderStatus.innerHTML = `<span style="color: #ef4444;">⚠️ No hand detected. Hold hand inside webcam box.</span>`;
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    }
+
+    // Start background status polling, studio and custom gestures
     updateSignStatus();
     initGestureCanvas();
     initWordsStudio();
+    fetchCustomGestures();
 });

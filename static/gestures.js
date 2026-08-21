@@ -455,6 +455,140 @@ const WORD_DATABASE = [
         tip: 'Dominant hand chops down into palm' 
     },
 
+    // Daily Needs & Health (Micro-Signs)
+    { 
+        id: 'tablet', 
+        word: 'TABLET', 
+        category: 'Essentials', 
+        emoji: '💊', 
+        description: 'Medicine / Pill / Tablet', 
+        meaning: 'A small solid piece of medicine or pharmaceutical tablet taken for health or healing.',
+        howToSign: 'Form a small pinch with dominant Thumb and Index fingertips (like holding a small pill) and bring it toward your mouth.',
+        exampleSentence: '"I need to have my medicine / tablet with water."',
+        culturalNote: 'Universal mimetic sign for taking a medicinal tablet or capsule.',
+        sequence: ['T', 'A', 'B', 'L', 'E', 'T'], 
+        tip: 'Pinch thumb and index like holding a pill' 
+    },
+    { 
+        id: 'food', 
+        word: 'FOOD', 
+        category: 'Food & Drink', 
+        emoji: '🍲', 
+        description: 'Food / Meal / Nutrition', 
+        meaning: 'Any nutritious substance that people or animals eat or drink in order to maintain life and growth.',
+        howToSign: 'Form a flattened O shape with all 5 fingertips touching. Bring fingers to lips and tap lightly twice.',
+        exampleSentence: '"I would like to have some food, I am feeling hungry."',
+        culturalNote: 'Double tap signifies the noun FOOD, single tap represents the verb EAT.',
+        sequence: ['F', 'O', 'O', 'D'], 
+        tip: 'Tapered fingertips tapping lips twice' 
+    },
+    { 
+        id: 'want', 
+        word: 'WANT', 
+        category: 'Essentials', 
+        emoji: '🤲', 
+        description: 'Desire / Wish / Need', 
+        meaning: 'To have a desire to possess, do, or receive something.',
+        howToSign: 'Hold both open clawed hands with palms facing upward in front of you. Pull your hands towards your chest while curling fingers.',
+        exampleSentence: '"I want to drink some water."',
+        culturalNote: 'Pulling motion towards the body represents drawing the desired item closer.',
+        sequence: ['W', 'A', 'N', 'T'], 
+        tip: 'Clawed palms pulling towards chest' 
+    },
+    { 
+        id: 'sleep', 
+        word: 'SLEEP', 
+        category: 'Essentials', 
+        emoji: '🛏️', 
+        description: 'Rest / Sleep / Tired', 
+        meaning: 'A condition of body and mind that recurs for several hours every night, in which the nervous system is inactive.',
+        howToSign: 'Hold your flat hand slightly tilted against the side of your cheek or bring an open hand from forehead down to chin while closing fingertips.',
+        exampleSentence: '"I am feeling very tired and would like to sleep."',
+        culturalNote: 'Closing eyes and tilting head slightly adds expressive depth.',
+        sequence: ['S', 'L', 'E', 'E', 'P'], 
+        tip: 'Tilted hand resting against cheek' 
+    },
+    { 
+        id: 'restroom', 
+        word: 'RESTROOM', 
+        category: 'Essentials', 
+        emoji: '🚻', 
+        description: 'Bathroom / Toilet / Washroom', 
+        meaning: 'A room equipped with toilets and washbasins for public or private hygiene.',
+        howToSign: 'Form a T-handshape (closed fist with thumb poking between index and middle knuckles) and shake your hand gently side-to-side twice.',
+        exampleSentence: '"Excuse me, where is the nearest restroom?"',
+        culturalNote: 'The T-handshape stands for Toilet, shaken for grammatical emphasis.',
+        sequence: ['R', 'E', 'S', 'T', 'R', 'O', 'O', 'M'], 
+        tip: 'T-fist shaking side to side' 
+    },
+    { 
+        id: 'me', 
+        word: 'ME', 
+        category: 'Essentials', 
+        emoji: '☝️', 
+        description: 'I / Me / Myself', 
+        meaning: 'The person speaking or signing; first-person singular pronoun.',
+        howToSign: 'Point your index fingertip directly towards the center of your chest.',
+        exampleSentence: '"Could you please help me?"',
+        culturalNote: 'Direct deictic pointing is standard ASL pronoun syntax.',
+        sequence: ['M', 'E'], 
+        tip: 'Index pointing directly to chest' 
+    },
+
+    // Two-Handed Signs
+    { 
+        id: 'book', 
+        word: 'BOOK', 
+        category: 'Essentials', 
+        emoji: '📖', 
+        description: 'Reading book / manual', 
+        meaning: 'A written or printed work consisting of pages glued or sewn together.',
+        howToSign: 'Hold both flat open hands with pinky edges touching side-by-side, then open your palms upward like opening a book.',
+        exampleSentence: '"I am reading an interesting book."',
+        culturalNote: 'Visual mimetic sign of opening a book.',
+        sequence: ['B', 'O', 'O', 'K'], 
+        tip: 'Palms together then opening like book' 
+    },
+    { 
+        id: 'house', 
+        word: 'HOUSE', 
+        category: 'Essentials', 
+        emoji: '🏠', 
+        description: 'House / Building / Shelter', 
+        meaning: 'A building for human habitation, especially one that is lived in by a family.',
+        howToSign: 'Touch the fingertips of both flat angled hands together at the top to form a roof (^), then separate and move them down.',
+        exampleSentence: '"Welcome to our house!"',
+        culturalNote: 'The peaked hands form the iconic triangular roofline of a home.',
+        sequence: ['H', 'O', 'U', 'S', 'E'], 
+        tip: 'Fingertips touching forming roof shape' 
+    },
+    { 
+        id: 'more', 
+        word: 'MORE', 
+        category: 'Essentials', 
+        emoji: '➕', 
+        description: 'Greater quantity / Additional', 
+        meaning: 'A greater or additional amount or degree.',
+        howToSign: 'Bring the fingertips and thumbs of both tapered hands together, and tap the fingertips of both hands against each other twice.',
+        exampleSentence: '"Could I please have more water?"',
+        culturalNote: 'One of the earliest signs taught in ASL baby sign language.',
+        sequence: ['M', 'O', 'R', 'E'], 
+        tip: 'Both tapered hands tapping fingertips' 
+    },
+    { 
+        id: 'play', 
+        word: 'PLAY', 
+        category: 'Essentials', 
+        emoji: '🎮', 
+        description: 'Recreation / Gaming / Fun', 
+        meaning: 'Engage in activity for enjoyment and recreation rather than a serious or practical purpose.',
+        howToSign: 'Form Y-handshapes (Shaka signs with thumb & pinky out) with both hands and rotate your wrists back and forth playfully.',
+        exampleSentence: '"The children want to play outside."',
+        culturalNote: 'The oscillating motion signifies dynamic playful action.',
+        sequence: ['P', 'L', 'A', 'Y'], 
+        tip: 'Both Y-hands rotating side to side' 
+    },
+
     // Food & Drink
     { 
         id: 'water', 

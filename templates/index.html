@@ -44,6 +44,10 @@
                     <i class="fa-solid fa-microphone-lines"></i>
                     <span>Speech &rarr; Sign</span>
                 </button>
+                <button class="tab-btn" data-tab="tab-custom-studio">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Custom Studio</span>
+                </button>
                 <button class="tab-btn" data-tab="tab-conversation">
                     <i class="fa-solid fa-comments"></i>
                     <span>Live Dialog</span>
@@ -51,6 +55,10 @@
             </nav>
 
             <div class="header-badges">
+                <a href="/" class="btn-portal-link" title="Return to Landing Portal">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Portal Home</span>
+                </a>
                 <div class="status-badge" id="camera-status">
                     <span class="status-dot green pulse"></span>
                     <span id="live-indicator-text">System Active</span>
@@ -97,15 +105,22 @@
                 <div class="control-section">
                     <!-- Mode Switcher -->
                     <div class="card mode-selector-card">
-                        <div class="mode-toggle-group">
-                            <button class="mode-toggle-btn active" id="btn-mode-word" data-mode="word">
-                                <i class="fa-solid fa-bolt"></i>
-                                <span>⚡ One-Gesture Word Mode</span>
-                            </button>
-                            <button class="mode-toggle-btn" id="btn-mode-letter" data-mode="letter">
-                                <i class="fa-solid fa-font"></i>
-                                <span>🔤 Alphabet Spelling Mode</span>
-                            </button>
+                        <div class="mode-header-row">
+                            <div class="mode-toggle-group">
+                                <button class="mode-toggle-btn active" id="btn-mode-letter" data-mode="letter">
+                                    <i class="fa-solid fa-font"></i>
+                                    <span>🔤 Alphabet Spelling Mode</span>
+                                </button>
+                                <button class="mode-toggle-btn" id="btn-mode-word" data-mode="word">
+                                    <i class="fa-solid fa-bolt"></i>
+                                    <span>⚡ One-Gesture Word Mode</span>
+                                </button>
+                            </div>
+                            <label class="auto-speak-toggle" title="Automatically speak recognized words out loud">
+                                <input type="checkbox" id="chk-auto-speak">
+                                <span class="slider"></span>
+                                <span class="toggle-label"><i class="fa-solid fa-volume-high"></i> Auto-Speak</span>
+                            </label>
                         </div>
                     </div>
 
@@ -142,32 +157,323 @@
                         </div>
                     </div>
 
-                    <!-- One-Gesture Cheat Sheet Chips -->
+                    <!-- Interactive Gesture & Finger Positioning Guide -->
                     <div class="card word-cheatsheet-card" id="word-cheatsheet-box">
                         <div class="card-header">
                             <div class="card-title">
-                                <i class="fa-solid fa-hand-sparkles"></i>
-                                <span>One-Gesture Quick Word Guide</span>
+                                <i class="fa-solid fa-hands" style="color: #60a5fa;"></i>
+                                <span>Gesture Finger Shortcuts & Hand Guide</span>
+                            </div>
+                            <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc; font-size: 11px; padding: 2px 8px; border-radius: 6px;">Which Fingers to Use</span>
+                        </div>
+
+                        <!-- Filter Tabs -->
+                        <div class="gesture-guide-filter-tabs">
+                            <button class="guide-tab-btn active" data-filter="all">🌟 All Gestures</button>
+                            <button class="guide-tab-btn" data-filter="two-hand">👐 2-Handed Signs</button>
+                            <button class="guide-tab-btn" data-filter="one-hand">✋ 1-Handed Signs</button>
+                        </div>
+
+                        <!-- Gesture Instruction Grid -->
+                        <div class="gesture-shortcuts-grid" id="gesture-shortcuts-grid">
+                            <!-- 2-HANDED GESTURES -->
+                            <div class="gesture-guide-item" data-type="two-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">➕</span>
+                                    <span class="guide-name">MORE</span>
+                                    <span class="guide-hand-badge two-hand">2 Hands</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> All 5 fingertips of both hands clustered into tapered points (O-tips).
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-arrows-to-dot"></i>
+                                    <strong>Action:</strong> Tap fingertips of both hands together in the center.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="two-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">📖</span>
+                                    <span class="guide-name">BOOK</span>
+                                    <span class="guide-hand-badge two-hand">2 Hands</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> Flat open hands (all 5 fingers straight).
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-book-open"></i>
+                                    <strong>Action:</strong> Touch pinky sides together, then open upward like opening a book.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="two-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">👨‍👩‍👧‍👦</span>
+                                    <span class="guide-name">FAMILY</span>
+                                    <span class="guide-hand-badge two-hand">2 Hands</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> Both hands in <strong>F-shape</strong> (Thumb + Index touch in circle, Middle/Ring/Pinky spread upright).
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-circle-nodes"></i>
+                                    <strong>Action:</strong> Bring both F-hands together until index/thumb circles touch.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="two-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">🏠</span>
+                                    <span class="guide-name">HOUSE</span>
+                                    <span class="guide-hand-badge two-hand">2 Hands</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> Flat hands (all 5 fingers straight).
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-house"></i>
+                                    <strong>Action:</strong> Angle hands diagonally and touch fingertips to form a roof (<code>^</code>).
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="two-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">🆘</span>
+                                    <span class="guide-name">HELP</span>
+                                    <span class="guide-hand-badge two-hand">2 Hands</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> Dominant = <strong>Thumbs-Up fist (👍)</strong> | Non-dominant = <strong>Flat palm (🖐️)</strong>.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-hand-holding-medical"></i>
+                                    <strong>Action:</strong> Place the Thumbs-Up fist firmly on top of the flat palm.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="two-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">💼</span>
+                                    <span class="guide-name">WORK</span>
+                                    <span class="guide-hand-badge two-hand">2 Hands</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> Both hands closed in <strong>Fists (✊ ✊)</strong>.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-briefcase"></i>
+                                    <strong>Action:</strong> Tap dominant fist on top of non-dominant wrist/fist twice.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="two-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">🤝</span>
+                                    <span class="guide-name">FRIEND</span>
+                                    <span class="guide-hand-badge two-hand">2 Hands</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> Both <strong>Index fingers</strong> curved/hooked (☝️ ☝️), other fingers in fists.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-handshake"></i>
+                                    <strong>Action:</strong> Lock/hook both curved index fingers together in the center.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="two-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">🎮</span>
+                                    <span class="guide-name">PLAY</span>
+                                    <span class="guide-hand-badge two-hand">2 Hands</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> <strong>Thumb + Pinky</strong> extended on both hands (Dual Shaka 🤙 🤙).
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-gamepad"></i>
+                                    <strong>Action:</strong> Rotate/shake both wrists back and forth playfully.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="two-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">🙏</span>
+                                    <span class="guide-name">THANK YOU</span>
+                                    <span class="guide-hand-badge two-hand">2 Hands</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> Both flat hands with all 5 fingers straight and pressed together.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-hands-praying"></i>
+                                    <strong>Action:</strong> Press both palms together in front of chest (Namaste/Pray).
+                                </div>
+                            </div>
+
+                            <!-- 1-HANDED GESTURES -->
+                            <div class="gesture-guide-item" data-type="one-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">💊</span>
+                                    <span class="guide-name">TABLET</span>
+                                    <span class="guide-hand-badge one-hand">1 Hand</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> Dominant <strong>Thumb + Index</strong> tips pinched together (Pill pinch), others curled in.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-pills"></i>
+                                    <strong>Action:</strong> Hold pill pinch steadily in front of camera.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="one-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">🍲</span>
+                                    <span class="guide-name">FOOD</span>
+                                    <span class="guide-hand-badge one-hand">1 Hand</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> All 5 fingertips of dominant hand gathered/clustered into a tapered point.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-utensils"></i>
+                                    <strong>Action:</strong> Tap gathered fingertips toward your mouth.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="one-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">💧</span>
+                                    <span class="guide-name">WATER</span>
+                                    <span class="guide-hand-badge one-hand">1 Hand</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> <strong>Index, Middle, and Ring</strong> straight up (<strong>W shape</strong>), Thumb holds Pinky.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-glass-water"></i>
+                                    <strong>Action:</strong> Hold W-handshape upright in camera.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="one-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">☝️</span>
+                                    <span class="guide-name">ME / I</span>
+                                    <span class="guide-hand-badge one-hand">1 Hand</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> Dominant <strong>Index finger</strong> straight up, other 4 fingers in a fist.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-user"></i>
+                                    <strong>Action:</strong> Point index finger straight up or toward your chest.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="one-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">🤟</span>
+                                    <span class="guide-name">I LOVE YOU</span>
+                                    <span class="guide-hand-badge one-hand">1 Hand</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> <strong>Thumb, Index, and Pinky</strong> extended; Middle & Ring curled into palm.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-heart"></i>
+                                    <strong>Action:</strong> Face palm forward toward camera.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="one-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">🤙</span>
+                                    <span class="guide-name">CALL ME</span>
+                                    <span class="guide-hand-badge one-hand">1 Hand</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> <strong>Thumb and Pinky</strong> extended (Phone shape), 3 middle fingers curled.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-phone"></i>
+                                    <strong>Action:</strong> Hold phone handshape upright in camera.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="one-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">✌️</span>
+                                    <span class="guide-name">PEACE</span>
+                                    <span class="guide-hand-badge one-hand">1 Hand</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> <strong>Index and Middle</strong> fingers extended in a wide <code>V</code> shape.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-peace"></i>
+                                    <strong>Action:</strong> Hold V-shape facing camera.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="one-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">👌</span>
+                                    <span class="guide-name">OK</span>
+                                    <span class="guide-hand-badge one-hand">1 Hand</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> <strong>Thumb + Index</strong> tips touch in a circle; <strong>Middle, Ring, Pinky</strong> straight up.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-check"></i>
+                                    <strong>Action:</strong> Hold circle handshape upright.
+                                </div>
+                            </div>
+
+                            <div class="gesture-guide-item" data-type="one-hand">
+                                <div class="guide-item-header">
+                                    <span class="guide-emoji">👋</span>
+                                    <span class="guide-name">HELLO</span>
+                                    <span class="guide-hand-badge one-hand">1 Hand</span>
+                                </div>
+                                <div class="guide-fingers">
+                                    <i class="fa-solid fa-hand-point-right"></i>
+                                    <strong>Fingers:</strong> All 5 fingers extended open wide with thumb spread out.
+                                </div>
+                                <div class="guide-action">
+                                    <i class="fa-solid fa-hand"></i>
+                                    <strong>Action:</strong> Open palm facing forward toward camera.
+                                </div>
                             </div>
                         </div>
-                        <div class="cheatsheet-chips">
-                            <span class="cheat-chip" title="Thumb, Index & Pinky Up">🤟 I LOVE YOU</span>
-                            <span class="cheat-chip" title="Open 5 Palm">👋 HELLO</span>
-                            <span class="cheat-chip" title="Thumb Up">👍 GOOD</span>
-                            <span class="cheat-chip" title="Thumb Down">👎 BAD</span>
-                            <span class="cheat-chip" title="V Sign">✌️ PEACE</span>
-                            <span class="cheat-chip" title="Index & Thumb Circle">👌 OK</span>
-                            <span class="cheat-chip" title="Closed Fist">✊ YES</span>
-                            <span class="cheat-chip" title="Pinch">🤏 NO</span>
-                            <span class="cheat-chip" title="W Sign (3 Fingers)">💧 WATER</span>
-                            <span class="cheat-chip" title="4 Fingers Up Flat">🛑 STOP</span>
-                            <span class="cheat-chip" title="Shaka Thumb & Pinky">🤙 CALL ME</span>
-                            <span class="cheat-chip" title="Pointing Index">👉 YOU</span>
-                            <span class="cheat-chip" title="Index & Pinky Up">🤘 ROCK ON</span>
+
+                        <div class="combo-hint-banner" style="margin-top: 12px; padding: 10px 14px; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 8px; font-size: 0.84rem; color: #93c5fd; display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-solid fa-lightbulb" style="color: #fbbf24; font-size: 1.1rem;"></i>
+                            <span><strong>Smart Chaining:</strong> Show <code>☝️ ME</code> (Index up) ➔ <code>💊 TABLET</code> (Pinch) ➔ Gemini AI speaks <em>"Please bring my medicine tablet"</em>!</span>
                         </div>
                     </div>
 
-                    <div class="card suggestions-card" id="suggestions-card" style="display: none;">
+                    <div class="card suggestions-card" id="suggestions-card">
                         <div class="card-header">
                             <div class="card-title">
                                 <i class="fa-solid fa-spell-check"></i>
@@ -176,6 +482,35 @@
                         </div>
                         <div class="suggestions-list" id="suggestions-container">
                             <span class="no-suggestions">Spell letters to view completions...</span>
+                        </div>
+                    </div>
+
+                    <!-- Multi-Gesture Sequence Ribbon & Grammar Polisher (Word Mode Only) -->
+                    <div class="card gesture-ribbon-card" id="gesture-ribbon-card" style="display: none;">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fa-solid fa-link"></i>
+                                <span>Multi-Gesture Sequence Chain</span>
+                            </div>
+                            <div class="ribbon-tools">
+                                <select class="tone-select" id="sentence-tone-select" title="Sentence Polish Tone">
+                                    <option value="natural">🌟 Natural &amp; Fluent</option>
+                                    <option value="polite">👔 Polite &amp; Formal</option>
+                                    <option value="direct">💬 Direct ASL Gloss</option>
+                                </select>
+                                <button class="btn btn-emerald btn-mini" id="btn-polish-sentence" title="Polish into complete grammatical sentence">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Polish Sentence
+                                </button>
+                                <button class="btn btn-secondary btn-mini" id="btn-undo-gesture" title="Undo last sign">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                                <button class="btn btn-secondary btn-mini" id="btn-clear-ribbon" title="Clear gesture sequence">
+                                    <i class="fa-solid fa-eraser"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="gesture-ribbon-track" id="gesture-ribbon-track">
+                            <span class="ribbon-placeholder">Show consecutive gestures in camera to chain full sentences...</span>
                         </div>
                     </div>
 
@@ -202,6 +537,30 @@
                             <textarea id="sentence-text" rows="3" placeholder="Sign gestures will construct words and sentences here..."></textarea>
                         </div>
 
+                        <!-- Gemini AI Guess Sentence & Alternatives Panel -->
+                        <div class="gemini-ai-panel" id="gemini-ai-panel">
+                            <div class="ai-panel-header">
+                                <div class="ai-badge">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                    <span>Gemini 2.5 AI Sentence Guesser</span>
+                                </div>
+                                <div class="ai-controls">
+                                    <select id="gemini-tone-select" class="ai-tone-select" title="AI Sentence Tone">
+                                        <option value="natural">✨ Natural Spoken</option>
+                                        <option value="formal">👔 Polite & Formal</option>
+                                        <option value="medical">🏥 Medical / Urgent</option>
+                                        <option value="casual">💬 Casual Chat</option>
+                                    </select>
+                                    <button class="btn btn-mini btn-ai-guess" id="btn-ai-guess" title="Ask Gemini AI to Guess Sentence">
+                                        <i class="fa-solid fa-brain"></i> <span>AI Guess</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="ai-alternatives-container" id="ai-alternatives-box">
+                                <span class="ai-prompt-hint">🤖 Sign gestures to see real-time Gemini AI sentence guesses and smart completions here...</span>
+                            </div>
+                        </div>
+
                         <div class="composer-toolbar">
                             <div class="key-actions">
                                 <button class="btn btn-secondary" id="btn-space">
@@ -219,6 +578,79 @@
                                 <i class="fa-solid fa-volume-high"></i>
                                 <span>Speak Aloud</span>
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- 50+ Quick Smart Sentences Explorer Card -->
+                    <div class="card smart-sentences-card" id="smart-sentences-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fa-solid fa-list-check" style="color: #60a5fa;"></i>
+                                <span>50+ Quick Smart Sentences (Instant Click & Speak)</span>
+                            </div>
+                            <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; font-size: 11px; padding: 3px 8px; border-radius: 6px;">50 Verified Sentences</span>
+                        </div>
+                        <div class="smart-sentences-body">
+                            <div class="sentence-category-group">
+                                <div class="sentence-cat-title">🏥 Medical & Emergency</div>
+                                <div class="sentence-pills-row">
+                                    <button class="sentence-quick-pill" data-signs="ME WANT TABLET" data-sentence="I need to take my medicine tablet, please.">💊 <strong>ME + TABLET:</strong> "I need to take my medicine tablet, please."</button>
+                                    <button class="sentence-quick-pill" data-signs="TABLET WATER" data-sentence="Please bring me my tablet / medicine with a glass of water.">💧 <strong>TABLET + WATER:</strong> "Please bring my medicine with water."</button>
+                                    <button class="sentence-quick-pill" data-signs="HELP TABLET" data-sentence="Urgent: I need my medicine tablet immediately!">🆘 <strong>HELP + TABLET:</strong> "Urgent: I need my medicine tablet immediately!"</button>
+                                    <button class="sentence-quick-pill" data-signs="CALL DOCTOR" data-sentence="Please call a doctor right away!">🩺 <strong>CALL + DOCTOR:</strong> "Please call a doctor right away!"</button>
+                                    <button class="sentence-quick-pill" data-signs="WHERE HOSPITAL" data-sentence="Where is the nearest hospital or clinic?">🏥 <strong>WHERE + HOSPITAL:</strong> "Where is the nearest hospital?"</button>
+                                    <button class="sentence-quick-pill" data-signs="ME SICK" data-sentence="I am feeling sick and unwell, I need help.">🤒 <strong>ME + SICK:</strong> "I am feeling sick and unwell."</button>
+                                </div>
+                            </div>
+
+                            <div class="sentence-category-group">
+                                <div class="sentence-cat-title">🍲 Food, Drink & Daily Needs</div>
+                                <div class="sentence-pills-row">
+                                    <button class="sentence-quick-pill" data-signs="ME WANT FOOD" data-sentence="I would like to have some food, please.">🍲 <strong>ME + FOOD:</strong> "I would like to have some food, please."</button>
+                                    <button class="sentence-quick-pill" data-signs="ME WANT WATER" data-sentence="Could I please have some water to drink?">💧 <strong>ME + WATER:</strong> "Could I please have some water to drink?"</button>
+                                    <button class="sentence-quick-pill" data-signs="MORE WATER" data-sentence="Could I please have some more water?">➕ <strong>MORE + WATER:</strong> "Could I please have some more water?"</button>
+                                    <button class="sentence-quick-pill" data-signs="MORE FOOD" data-sentence="Could I please have some more food?">➕ <strong>MORE + FOOD:</strong> "Could I please have some more food?"</button>
+                                    <button class="sentence-quick-pill" data-signs="FOOD WATER" data-sentence="Could I please have both food and water?">🍽️ <strong>FOOD + WATER:</strong> "Could I please have both food and water?"</button>
+                                    <button class="sentence-quick-pill" data-signs="ME HUNGRY" data-sentence="I am feeling very hungry.">🤤 <strong>ME + HUNGRY:</strong> "I am feeling very hungry."</button>
+                                    <button class="sentence-quick-pill" data-signs="WHERE WATER" data-sentence="Where can I find drinking water?">📍 <strong>WHERE + WATER:</strong> "Where can I find drinking water?"</button>
+                                </div>
+                            </div>
+
+                            <div class="sentence-category-group">
+                                <div class="sentence-cat-title">🚻 Restroom & Personal Comfort</div>
+                                <div class="sentence-pills-row">
+                                    <button class="sentence-quick-pill" data-signs="WHERE RESTROOM" data-sentence="Excuse me, where is the nearest restroom?">🚻 <strong>WHERE + RESTROOM:</strong> "Where is the nearest restroom?"</button>
+                                    <button class="sentence-quick-pill" data-signs="ME WANT RESTROOM" data-sentence="I need to go to the restroom, please.">🚶 <strong>ME + RESTROOM:</strong> "I need to go to the restroom, please."</button>
+                                    <button class="sentence-quick-pill" data-signs="ME SLEEP" data-sentence="I am feeling exhausted and would like to sleep.">🛏️ <strong>ME + SLEEP:</strong> "I am feeling tired and would like to sleep."</button>
+                                    <button class="sentence-quick-pill" data-signs="ME TIRED" data-sentence="I am feeling very tired.">😴 <strong>ME + TIRED:</strong> "I am feeling very tired."</button>
+                                </div>
+                            </div>
+
+                            <div class="sentence-category-group">
+                                <div class="sentence-cat-title">🏠 House, Family, Friends & Work</div>
+                                <div class="sentence-pills-row">
+                                    <button class="sentence-quick-pill" data-signs="THANK YOU FRIEND" data-sentence="Thank you so much, my friend!">🙏 <strong>THANK YOU + FRIEND:</strong> "Thank you so much, my friend!"</button>
+                                    <button class="sentence-quick-pill" data-signs="I LOVE FAMILY" data-sentence="I love my family very much!">👨‍👩‍👧‍👦 <strong>LOVE + FAMILY:</strong> "I love my family very much!"</button>
+                                    <button class="sentence-quick-pill" data-signs="ME GO HOUSE" data-sentence="I would like to go home now.">🏠 <strong>ME + HOUSE:</strong> "I would like to go home now."</button>
+                                    <button class="sentence-quick-pill" data-signs="WANT READ BOOK" data-sentence="I would like to read a book.">📖 <strong>WANT + BOOK:</strong> "I would like to read a book."</button>
+                                    <button class="sentence-quick-pill" data-signs="PLAY GAME FRIEND" data-sentence="Let us play a game together, friend!">🎮 <strong>PLAY + FRIEND:</strong> "Let us play a game together, friend!"</button>
+                                    <button class="sentence-quick-pill" data-signs="ME WORK HOUSE" data-sentence="I am working from home today.">💼 <strong>WORK + HOUSE:</strong> "I am working from home today."</button>
+                                    <button class="sentence-quick-pill" data-signs="HELP WORK" data-sentence="Could you please help me with this work?">🤝 <strong>HELP + WORK:</strong> "Could you please help me with this work?"</button>
+                                    <button class="sentence-quick-pill" data-signs="STOP WORK" data-sentence="Let us take a break and stop working for now.">🛑 <strong>STOP + WORK:</strong> "Let us stop working for now."</button>
+                                </div>
+                            </div>
+
+                            <div class="sentence-category-group">
+                                <div class="sentence-cat-title">👋 Greetings & Polite Conversations</div>
+                                <div class="sentence-pills-row">
+                                    <button class="sentence-quick-pill" data-signs="HELLO HOW YOU" data-sentence="Hello, how are you doing today?">👋 <strong>HELLO + HOW YOU:</strong> "Hello, how are you doing today?"</button>
+                                    <button class="sentence-quick-pill" data-signs="NICE MEET YOU" data-sentence="It is very nice to meet you.">🤝 <strong>NICE + MEET YOU:</strong> "It is very nice to meet you."</button>
+                                    <button class="sentence-quick-pill" data-signs="THANK YOU VERY MUCH" data-sentence="Thank you very much for your kind help!">🙏 <strong>THANK YOU VERY MUCH:</strong> "Thank you very much for your kind help!"</button>
+                                    <button class="sentence-quick-pill" data-signs="HAVE GOOD DAY" data-sentence="Have a wonderful day ahead!">☀️ <strong>HAVE + GOOD DAY:</strong> "Have a wonderful day ahead!"</button>
+                                    <button class="sentence-quick-pill" data-signs="SEE YOU LATER" data-sentence="See you later!">👋 <strong>SEE YOU LATER:</strong> "See you later!"</button>
+                                    <button class="sentence-quick-pill" data-signs="I LOVE YOU" data-sentence="I love you so much!">🤟 <strong>I LOVE YOU:</strong> "I love you so much!"</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -408,7 +840,82 @@
             </main>
         </section>
 
-        <!-- TAB 4: Two-Way Live Conversation Dialog -->
+        <!-- TAB 4: Custom Gesture Studio (Record & Teach AI) -->
+        <section class="tab-content" id="tab-custom-studio">
+            <main class="custom-studio-grid">
+                <!-- Left: Gesture Trainer / Recorder -->
+                <div class="card custom-recorder-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fa-solid fa-camera-rotate"></i>
+                            <span>Record &amp; Teach New Hand Gesture</span>
+                        </div>
+                        <div class="badge-ai">Live 3D Template Trainer</div>
+                    </div>
+
+                    <div class="recorder-camera-box">
+                        <img src="/video_feed" alt="Trainer Camera Feed" class="stream-img">
+                        <div class="recorder-overlay" id="recorder-overlay">
+                            <span class="countdown-num" id="record-countdown">3</span>
+                            <span class="countdown-text" id="record-countdown-text">Hold hand pose steady...</span>
+                        </div>
+                    </div>
+
+                    <div class="recorder-form">
+                        <div class="form-row">
+                            <div class="form-group flex-2">
+                                <label><i class="fa-solid fa-tag"></i> Gesture Name / Word:</label>
+                                <input type="text" id="custom-gesture-name" placeholder="e.g. MY NAME IS VARUN, COFFEE, DOCTOR">
+                            </div>
+                            <div class="form-group flex-1">
+                                <label><i class="fa-solid fa-icons"></i> Emoji:</label>
+                                <input type="text" id="custom-gesture-emoji" placeholder="e.g. 🧑, ☕, 🩺" maxlength="4">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-volume-high"></i> Spoken Phrase (Audio Output):</label>
+                            <input type="text" id="custom-gesture-phrase" placeholder="e.g. Hello, my name is Varun. How can I help?">
+                        </div>
+
+                        <div class="recorder-actions">
+                            <button class="btn btn-primary btn-record-act" id="btn-record-custom-gesture">
+                                <i class="fa-solid fa-record-vinyl"></i>
+                                <span>Capture Hand Landmark Signature</span>
+                            </button>
+                            <button class="btn btn-secondary" id="btn-test-custom-capture">
+                                <i class="fa-solid fa-hand-sparkles"></i> Test Hand Pose
+                            </button>
+                        </div>
+                        <div class="recorder-status" id="custom-recorder-status">Ready. Position your hand inside the webcam frame and click Capture.</div>
+                    </div>
+                </div>
+
+                <!-- Right: Custom Gestures Library & Management -->
+                <div class="card custom-library-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fa-solid fa-folder-open"></i>
+                            <span>My Registered Custom Gestures</span>
+                        </div>
+                        <span class="count-badge" id="custom-gestures-count">0 Gestures</span>
+                    </div>
+
+                    <div class="custom-library-tools">
+                        <input type="text" id="custom-search-input" placeholder="Search custom gestures...">
+                        <button class="btn btn-secondary btn-mini" id="btn-refresh-custom" title="Refresh library">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                        </button>
+                    </div>
+
+                    <div class="custom-gestures-grid" id="custom-gestures-grid">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </main>
+        </section>
+
+        <!-- TAB 5: Two-Way Live Conversation Dialog -->
         <section class="tab-content" id="tab-conversation">
             <main class="conversation-grid">
                 <div class="card dialog-thread-card">
