@@ -1,0 +1,19 @@
+# Virtual Environments
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# IDE configs
+.idea/
+.vscode/
+
+# Local collection datasets
+dataset_collection/
+AtoZ_3.1/
+*.log

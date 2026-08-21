@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignAI - Real-Time Sign Language to Speech</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark-theme">
+    <!-- Background glow ambient effects -->
+    <div class="glow-orb glow-top-left"></div>
+    <div class="glow-orb glow-bottom-right"></div>
+
+    <div class="app-container">
+        <!-- Top Navbar -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-hands-asl-interpreting"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>SignAI <span>Studio</span></h1>
+                    <p>Real-Time Neural Sign Language Translator</p>
+                </div>
+            </div>
+
+            <div class="header-badges">
+                <div class="status-badge" id="camera-status">
+                    <span class="status-dot green pulse"></span>
+                    <span>Live Stream</span>
+                </div>
+                <div class="status-badge" id="hand-status">
+                    <span class="status-dot gray" id="hand-indicator"></span>
+                    <span id="hand-text">No Hand</span>
+                </div>
+                <button class="btn-icon" id="btn-info-modal" title="ASL Gesture Reference Chart">
+                    <i class="fa-regular fa-circle-question"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Grid Layout -->
+        <main class="app-grid">
+            <!-- Left Column: Video Feeds -->
+            <section class="video-section">
+                <!-- Camera Feed Card -->
+                <div class="card video-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fa-solid fa-video"></i>
+                            <span>Webcam Stream</span>
+                        </div>
+                        <div class="live-tag">LIVE</div>
+                    </div>
+                    <div class="video-wrapper">
+                        <img src="/video_feed" alt="Webcam Feed" id="camera-stream" class="stream-img">
+                        <div class="stream-overlay">
+                            <div class="roi-guide">
+                                <span>Place hand here</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Skeleton Tracking Card -->
+                <div class="card video-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fa-solid fa-fingerprint"></i>
+                            <span>Landmark Skeleton (21 Points)</span>
+                        </div>
+                        <div class="badge-ai">Mediapipe + CNN</div>
+                    </div>
+                    <div class="video-wrapper skeleton-wrapper">
+                        <img src="/skeleton_feed" alt="Skeleton Tracking" id="skeleton-stream" class="stream-img">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column: Recognition & Synthesis Studio -->
+            <section class="control-section">
+                <!-- Live Prediction Card -->
+                <div class="card prediction-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            <span>Live Sign Detection</span>
+                        </div>
+                    </div>
+                    
+                    <div class="prediction-body">
+                        <div class="char-display-box" id="char-box">
+                            <span class="char-label">Detected Symbol</span>
+                            <div class="char-value" id="current-char">-</div>
+                        </div>
+                        <div class="pred-meta">
+                            <div class="meta-row">
+                                <span>Recognition Confidence</span>
+                                <span class="conf-percent" id="conf-val">0%</span>
+                            </div>
+                            <div class="conf-bar-bg">
+                                <div class="conf-bar-fill" id="conf-bar"></div>
+                            </div>
+                            <div class="meta-help">
+                                <i class="fa-solid fa-circle-info"></i>
+                                <span>Hold gesture steady to type or use "Next" gesture to commit.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Suggestions Panel -->
+                <div class="card suggestions-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fa-solid fa-spell-check"></i>
+                            <span>Smart Word Autocomplete</span>
+                        </div>
+                    </div>
+                    <div class="suggestions-list" id="suggestions-container">
+                        <span class="no-suggestions">Spell letters to view word completions...</span>
+                    </div>
+                </div>
+
+                <!-- Sentence Composer & Speech Output -->
+                <div class="card composer-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fa-solid fa-comments"></i>
+                            <span>Constructed Sentence</span>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn-mini" id="btn-copy" title="Copy text to clipboard">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                            <button class="btn-mini" id="btn-download" title="Export transcript">
+                                <i class="fa-solid fa-download"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="composer-body">
+                        <textarea id="sentence-text" rows="3" placeholder="Sign gestures will construct words and sentences here..."></textarea>
+                    </div>
+
+                    <!-- Action Buttons Toolbar -->
+                    <div class="composer-toolbar">
+                        <div class="key-actions">
+                            <button class="btn btn-secondary" id="btn-space" title="Add space">
+                                <i class="fa-solid fa-arrows-left-right"></i> Space
+                            </button>
+                            <button class="btn btn-secondary" id="btn-backspace" title="Delete last letter">
+                                <i class="fa-solid fa-delete-left"></i> Backspace
+                            </button>
+                            <button class="btn btn-danger" id="btn-clear" title="Clear text">
+                                <i class="fa-solid fa-trash-can"></i> Clear
+                            </button>
+                        </div>
+
+                        <button class="btn btn-primary btn-speak" id="btn-speak">
+                            <i class="fa-solid fa-volume-high"></i>
+                            <span>Speak Aloud</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ASL Reference Chart Modal -->
+    <div class="modal-backdrop" id="chart-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-hand"></i> American Sign Language Fingerspelling Guide</h3>
+                <button class="btn-close" id="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <p>Hold each gesture inside the camera bounding box steady to register the alphabet letter.</p>
+                <div class="asl-grid">
+                    <div class="asl-item"><strong>A</strong><span>Fist with thumb aside</span></div>
+                    <div class="asl-item"><strong>B</strong><span>Open palm, thumb across</span></div>
+                    <div class="asl-item"><strong>C</strong><span>Curved 'C' shaped hand</span></div>
+                    <div class="asl-item"><strong>D</strong><span>Index finger up</span></div>
+                    <div class="asl-item"><strong>E</strong><span>Curled fingertips touching thumb</span></div>
+                    <div class="asl-item"><strong>F</strong><span>Index & thumb touching ('OK')</span></div>
+                    <div class="asl-item"><strong>G</strong><span>Index pointing sideways</span></div>
+                    <div class="asl-item"><strong>H</strong><span>Index & middle pointing sideways</span></div>
+                    <div class="asl-item"><strong>I</strong><span>Pinky finger up</span></div>
+                    <div class="asl-item"><strong>L</strong><span>'L' shape with thumb & index</span></div>
+                    <div class="asl-item"><strong>O</strong><span>'O' shape fingers</span></div>
+                    <div class="asl-item"><strong>V</strong><span>'V' peace sign</span></div>
+                    <div class="asl-item"><strong>W</strong><span>3 middle fingers up</span></div>
+                    <div class="asl-item"><strong>Y</strong><span>Thumb and pinky extended</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
