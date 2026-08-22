@@ -1,0 +1,21 @@
+# Netlify Deployment Configuration for SignAI Studio
+
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/"
+  to = "/templates/landing.html"
+  status = 200
+
+[[redirects]]
+  from = "/app"
+  to = "/templates/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
