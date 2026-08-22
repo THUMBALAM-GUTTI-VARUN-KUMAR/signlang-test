@@ -2595,18 +2595,21 @@ body {
 
 .hero-title {
     font-family: var(--font-heading);
-    font-size: 48px;
+    font-size: clamp(2.2rem, 4.5vw, 3.4rem);
     font-weight: 800;
-    line-height: 1.15;
-    color: #fff;
-    margin-bottom: 18px;
-    letter-spacing: -0.02em;
+    line-height: 1.18;
+    color: var(--text-main);
+    margin-bottom: 20px;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
 }
 
 .gradient-text {
-    background: linear-gradient(135deg, #818cf8 0%, #34d399 100%);
+    background: linear-gradient(135deg, #818cf8 0%, #38bdf8 50%, #34d399 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    display: inline-block;
+    filter: drop-shadow(0 2px 12px rgba(99, 102, 241, 0.3));
 }
 
 .hero-subtitle {
@@ -2665,7 +2668,7 @@ body {
     font-family: var(--font-heading);
     font-size: 22px;
     font-weight: 800;
-    color: #fff;
+    color: var(--text-main);
 }
 
 .metric-label {
@@ -4120,8 +4123,20 @@ body.light-theme .hero-badge {
     color: #4f46e5;
 }
 
+body.light-theme .hero-title,
 body.light-theme .landing-hero h1 {
-    color: #0f172a;
+    color: #0f172a !important;
+}
+
+body.light-theme .gradient-text {
+    background: linear-gradient(135deg, #4338ca 0%, #0284c7 50%, #059669 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    filter: drop-shadow(0 2px 8px rgba(79, 70, 229, 0.2)) !important;
+}
+
+body.light-theme .metric-num {
+    color: #0f172a !important;
 }
 
 body.light-theme .landing-hero p {
