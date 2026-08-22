@@ -612,6 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctx = canvas.getContext('2d');
     const activeSignLetter = document.getElementById('active-sign-letter');
     const activeSignDesc = document.getElementById('active-sign-desc');
+    const activeSignTypePill = document.getElementById('active-sign-type-pill');
     const animStatusBadge = document.getElementById('anim-status-badge');
     const sequenceTiles = document.getElementById('sequence-tiles');
     const animScrubber = document.getElementById('anim-scrubber');
@@ -622,6 +623,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnAnimNext = document.getElementById('btn-anim-next');
     const btnAnimReplay = document.getElementById('btn-anim-replay');
     const speedButtons = document.querySelectorAll('.btn-speed');
+
+    const btnModeFullword = document.getElementById('btn-mode-fullword');
+    const btnModeFingerspell = document.getElementById('btn-mode-fingerspell');
 
     const btnVoiceRecord = document.getElementById('btn-voice-record');
     const voiceStatusText = document.getElementById('voice-status-text');
@@ -636,12 +640,32 @@ document.addEventListener('DOMContentLoaded', () => {
     let isPlaying = false;
     let playSpeed = 1.0;
     let animTimer = null;
+    let wordKeyframeTimer = null;
+    let currentSpeechToSignMode = 'word'; // 'word' or 'spelling'
     let isSpeechRecording = false;
     let speechRecognizer = null;
 
+    if (btnModeFullword && btnModeFingerspell) {
+        btnModeFullword.addEventListener('click', () => {
+            btnModeFullword.classList.add('active');
+            btnModeFingerspell.classList.remove('active');
+            currentSpeechToSignMode = 'word';
+            const val = textToSignInput.value.trim();
+            if (val) translateTextToSign(val);
+        });
+
+        btnModeFingerspell.addEventListener('click', () => {
+            btnModeFingerspell.classList.add('active');
+            btnModeFullword.classList.remove('active');
+            currentSpeechToSignMode = 'spelling';
+            const val = textToSignInput.value.trim();
+            if (val) translateTextToSign(val);
+        });
+    }
+
     function initGestureCanvas() {
         if (currentSequence.length === 0) {
-            const defaultLandmarks = window.getLandmarksForChar('A').landmarks;
+            const defaultLandmarks = window.getLandmarksForWordOrChar ? window.getLandmarksForWordOrChar('HELLO').landmarks : window.getLandmarksForChar('A').landmarks;
             window.renderHandSkeleton(ctx, defaultLandmarks);
         }
     }
@@ -655,7 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/text-to-sign', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text })
+                body: JSON.stringify({ text, mode: currentSpeechToSignMode })
             });
             const data = await res.json();
             currentSequence = data.sequence || [];
@@ -679,8 +703,22 @@ document.addEventListener('DOMContentLoaded', () => {
         sequenceTiles.innerHTML = '';
         seq.forEach((item, idx) => {
             const tile = document.createElement('div');
-            tile.className = `tile ${idx === currentSignIndex ? 'active' : ''}`;
-            tile.textContent = item === ' ' ? '␣' : item;
+            const isWord = typeof item === 'string' && item.length > 1 && item !== ' ';
+            tile.className = `tile ${isWord ? 'tile-word' : ''} ${idx === currentSignIndex ? 'active' : ''}`;
+            
+            if (item === ' ') {
+                tile.textContent = '␣';
+                tile.title = 'Pause between words';
+            } else if (isWord) {
+                const wordInfo = window.getLandmarksForWordOrChar ? window.getLandmarksForWordOrChar(item) : null;
+                const emoji = wordInfo && wordInfo.emoji ? wordInfo.emoji + ' ' : '⚡ ';
+                tile.innerHTML = `<span class="tile-emoji">${emoji}</span><span class="tile-text">${item}</span>`;
+                tile.title = `Full ASL Gesture: ${item}`;
+            } else {
+                tile.textContent = item;
+                tile.title = `Fingerspelling: ${item}`;
+            }
+
             tile.onclick = () => {
                 pauseSequence();
                 currentSignIndex = idx;
@@ -697,13 +735,52 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentSequence || currentSequence.length === 0) return;
         if (index < 0 || index >= currentSequence.length) return;
 
-        const char = currentSequence[index];
-        const info = window.getLandmarksForChar(char);
+        // Clear any previous word keyframe loop
+        if (wordKeyframeTimer) {
+            clearInterval(wordKeyframeTimer);
+            wordKeyframeTimer = null;
+        }
 
-        activeSignLetter.textContent = char === ' ' ? 'PAUSE' : char;
-        activeSignDesc.textContent = char === ' ' ? 'Short pause between words' : info.description;
+        const item = currentSequence[index];
+        const info = window.getLandmarksForWordOrChar ? window.getLandmarksForWordOrChar(item) : window.getLandmarksForChar(item);
 
-        window.renderHandSkeleton(ctx, info.landmarks);
+        if (item === ' ') {
+            activeSignLetter.textContent = 'PAUSE';
+            activeSignDesc.textContent = 'Short pause between signs';
+            if (activeSignTypePill) {
+                activeSignTypePill.textContent = '⏸️ Pause';
+                activeSignTypePill.className = 'active-sign-type-pill pause-mode';
+            }
+            window.renderHandSkeleton(ctx, info.landmarks || DEFAULT_PALM);
+        } else if (info.isWord) {
+            activeSignLetter.textContent = `${info.emoji || '⚡'} ${info.name}`;
+            activeSignDesc.textContent = info.description || 'Full-Word ASL Gesture';
+            if (activeSignTypePill) {
+                activeSignTypePill.textContent = '⚡ Word Sign';
+                activeSignTypePill.className = 'active-sign-type-pill word-mode';
+            }
+
+            // Animate through keyframes in a loop
+            if (info.keyframes && info.keyframes.length > 1) {
+                let kIndex = 0;
+                window.renderHandSkeleton(ctx, info.keyframes[kIndex]);
+                const frameInterval = Math.max(180, Math.round(300 / playSpeed));
+                wordKeyframeTimer = setInterval(() => {
+                    kIndex = (kIndex + 1) % info.keyframes.length;
+                    window.renderHandSkeleton(ctx, info.keyframes[kIndex]);
+                }, frameInterval);
+            } else {
+                window.renderHandSkeleton(ctx, info.landmarks);
+            }
+        } else {
+            activeSignLetter.textContent = item;
+            activeSignDesc.textContent = info.description || `Fingerspelling letter '${item}'`;
+            if (activeSignTypePill) {
+                activeSignTypePill.textContent = '🔤 Letter';
+                activeSignTypePill.className = 'active-sign-type-pill letter-mode';
+            }
+            window.renderHandSkeleton(ctx, info.landmarks);
+        }
 
         // Update active tile highlight
         const tiles = sequenceTiles.querySelectorAll('.tile');
@@ -726,7 +803,11 @@ document.addEventListener('DOMContentLoaded', () => {
         animStatusBadge.textContent = 'Playing';
 
         clearInterval(animTimer);
-        const delay = Math.round(900 / playSpeed);
+        // Base delay per step in sequence (words have longer presentation time)
+        const currentItem = currentSequence[currentSignIndex];
+        const isWord = typeof currentItem === 'string' && currentItem.length > 1 && currentItem !== ' ';
+        const baseDelay = isWord ? 1400 : 900;
+        const delay = Math.round(baseDelay / playSpeed);
 
         animTimer = setInterval(() => {
             if (currentSignIndex < currentSequence.length - 1) {
@@ -753,6 +834,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentSignIndex >= currentSequence.length - 1) {
                 currentSignIndex = 0;
             }
+            updateSignDisplay(currentSignIndex);
             playSequence();
         }
     });

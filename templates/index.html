@@ -748,7 +748,17 @@
                             <i class="fa-solid fa-hand"></i>
                             <span>Sign Language Animation Stage</span>
                         </div>
-                        <div class="gesture-status" id="anim-status-badge">Ready</div>
+                        <div class="stage-header-actions">
+                            <div class="speech-mode-selector">
+                                <button class="speech-mode-btn active" id="btn-mode-fullword" data-mode="word" title="Show Full Animated Word Gestures">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> ⚡ Word Signs
+                                </button>
+                                <button class="speech-mode-btn" id="btn-mode-fingerspell" data-mode="spelling" title="Show Letter-by-Letter Fingerspelling">
+                                    <i class="fa-solid fa-font"></i> 🔤 Fingerspelling
+                                </button>
+                            </div>
+                            <div class="gesture-status" id="anim-status-badge">Ready</div>
+                        </div>
                     </div>
 
                     <div class="stage-canvas-wrapper">
@@ -756,7 +766,10 @@
                         
                         <div class="stage-overlay-info">
                             <div class="active-sign-badge" id="active-sign-badge">
-                                <span class="active-sign-letter" id="active-sign-letter">-</span>
+                                <div class="active-sign-top-row">
+                                    <span class="active-sign-letter" id="active-sign-letter">-</span>
+                                    <span class="active-sign-type-pill" id="active-sign-type-pill">⚡ ASL Word</span>
+                                </div>
                                 <span class="active-sign-desc" id="active-sign-desc">Awaiting input</span>
                             </div>
                         </div>
@@ -796,7 +809,7 @@
 
                     <!-- Synchronized Letter Sequence Strip -->
                     <div class="sequence-strip-wrapper">
-                        <div class="sequence-label">Spelling Sequence:</div>
+                        <div class="sequence-label">Sign Sequence:</div>
                         <div class="sequence-tiles" id="sequence-tiles">
                             <span class="no-sequence">Type or speak a message to generate signs...</span>
                         </div>
@@ -833,7 +846,7 @@
                             </div>
                         </div>
                         <div class="text-input-body">
-                            <textarea id="text-to-sign-input" rows="3" placeholder="Type words or sentences here (e.g. Hello, Thank you, How are you)..."></textarea>
+                            <textarea id="text-to-sign-input" rows="3" placeholder="Type words or sentences here (e.g. Hello, Doctor, Water, Thank you, Help, House)..."></textarea>
                             
                             <div class="input-actions">
                                 <button class="btn btn-primary" id="btn-translate-to-sign">
@@ -848,15 +861,21 @@
 
                         <!-- Quick Phrase Chips -->
                         <div class="quick-phrases">
-                            <div class="quick-title">Quick Phrases:</div>
+                            <div class="quick-title">Quick Word &amp; Phrase Gestures:</div>
                             <div class="chips-row">
                                 <button class="chip-btn" data-phrase="HELLO">👋 HELLO</button>
+                                <button class="chip-btn" data-phrase="DOCTOR">🩺 DOCTOR</button>
+                                <button class="chip-btn" data-phrase="WATER">💧 WATER</button>
                                 <button class="chip-btn" data-phrase="THANK YOU">🙏 THANK YOU</button>
                                 <button class="chip-btn" data-phrase="PLEASE">🤲 PLEASE</button>
-                                <button class="chip-btn" data-phrase="YES">✊ YES</button>
-                                <button class="chip-btn" data-phrase="NO">🤏 NO</button>
                                 <button class="chip-btn" data-phrase="HELP">🆘 HELP</button>
                                 <button class="chip-btn" data-phrase="I LOVE YOU">🤟 LOVE</button>
+                                <button class="chip-btn" data-phrase="HOUSE">🏠 HOUSE</button>
+                                <button class="chip-btn" data-phrase="TABLET">💊 TABLET</button>
+                                <button class="chip-btn" data-phrase="FOOD">🍲 FOOD</button>
+                                <button class="chip-btn" data-phrase="YES">✊ YES</button>
+                                <button class="chip-btn" data-phrase="NO">🤏 NO</button>
+                                <button class="chip-btn" data-phrase="PEACE">✌️ PEACE</button>
                                 <button class="chip-btn" data-phrase="GOODBYE">👋 GOODBYE</button>
                             </div>
                         </div>

@@ -1062,50 +1062,111 @@ conversation_history = []
 @app.route('/api/text-to-sign', methods=['POST'])
 def api_text_to_sign():
     data = request.json or {}
-    text = data.get('text', '').strip().upper()
+    raw_text = data.get('text', '').strip()
+    text = raw_text.upper()
+    mode = data.get('mode', 'word')  # 'word' for full-word signs, 'spelling' for fingerspelling
+    
     if not text:
         return jsonify({"tokens": [], "sequence": [], "message": "Empty text provided"})
-        
-    words = text.split()
+
+    # Known full-word ASL gesture mappings
+    WORD_GESTURES_MAP = {
+        "HELLO": {"name": "HELLO", "emoji": "👋", "desc": "Open palm wave salute from temple"},
+        "DOCTOR": {"name": "DOCTOR", "emoji": "🩺", "desc": "Tapping wrist twice for pulse check"},
+        "WATER": {"name": "WATER", "emoji": "💧", "desc": "W-hand tapping chin twice"},
+        "THANK YOU": {"name": "THANK YOU", "emoji": "🙏", "desc": "Fingertips from chin moving outward"},
+        "THANKS": {"name": "THANK YOU", "emoji": "🙏", "desc": "Fingertips from chin moving outward"},
+        "PLEASE": {"name": "PLEASE", "emoji": "🤲", "desc": "Flat palm circular rub on chest"},
+        "HELP": {"name": "HELP", "emoji": "🆘", "desc": "Thumbs-up fist rising on flat palm"},
+        "LOVE": {"name": "I LOVE YOU", "emoji": "🤟", "desc": "Thumb, index, and pinky extended"},
+        "I LOVE YOU": {"name": "I LOVE YOU", "emoji": "🤟", "desc": "Thumb, index, and pinky extended"},
+        "HOUSE": {"name": "HOUSE", "emoji": "🏠", "desc": "Hands forming peaked roof"},
+        "HOME": {"name": "HOUSE", "emoji": "🏠", "desc": "Hands forming peaked roof"},
+        "TABLET": {"name": "TABLET", "emoji": "💊", "desc": "Pinch pill bringing to mouth"},
+        "MEDICINE": {"name": "TABLET", "emoji": "💊", "desc": "Pinch pill bringing to mouth"},
+        "FOOD": {"name": "FOOD", "emoji": "🍲", "desc": "Tapered fingertips tapping lips twice"},
+        "YES": {"name": "YES", "emoji": "✊", "desc": "S-fist nodding up and down"},
+        "NO": {"name": "NO", "emoji": "🤏", "desc": "Index and middle snapping down to thumb"},
+        "PEACE": {"name": "PEACE", "emoji": "✌️", "desc": "V-sign held forward"},
+        "GOODBYE": {"name": "GOODBYE", "emoji": "👋", "desc": "Open hand waving fingers"},
+        "BYE": {"name": "GOODBYE", "emoji": "👋", "desc": "Open hand waving fingers"}
+    }
+
     tokens = []
     sign_sequence = []
-    
-    # Common phrase dictionary mappings
-    phrases_map = {
-        "HELLO": "HELLO",
-        "THANK YOU": "THANK YOU",
-        "THANKS": "THANK YOU",
-        "PLEASE": "PLEASE",
-        "YES": "YES",
-        "NO": "NO",
-        "HELP": "HELP",
-        "LOVE": "LOVE",
-        "GOODBYE": "GOODBYE",
-        "BYE": "GOODBYE"
-    }
-    
-    # Check if full phrase is mapped
-    if text in phrases_map:
-        phrase_key = phrases_map[text]
-        tokens.append({"type": "phrase", "word": phrase_key})
-        for ch in phrase_key:
-            sign_sequence.append(ch)
+
+    if mode == 'word':
+        # Sort phrases by word length descending so "THANK YOU" matches before "THANK"
+        sorted_phrases = sorted(WORD_GESTURES_MAP.keys(), key=lambda k: len(k.split()), reverse=True)
+        remaining = text
+        while remaining:
+            remaining = remaining.strip(' ,.!?')
+            if not remaining:
+                break
+            matched = False
+            for phrase in sorted_phrases:
+                # Check if current remaining string starts with this phrase boundary
+                if remaining == phrase or remaining.startswith(phrase + ' ') or remaining.startswith(phrase + ',') or remaining.startswith(phrase + '.'):
+                    meta = WORD_GESTURES_MAP[phrase]
+                    sign_sequence.append(meta["name"])
+                    tokens.append({
+                        "type": "word",
+                        "word": meta["name"],
+                        "emoji": meta["emoji"],
+                        "desc": meta["desc"],
+                        "is_word": True
+                    })
+                    remaining = remaining[len(phrase):].lstrip(' ,.!?')
+                    sign_sequence.append(' ')
+                    matched = True
+                    break
+            if not matched:
+                parts = remaining.split(None, 1)
+                w = parts[0]
+                remaining = parts[1] if len(parts) > 1 else ""
+                clean_w = ''.join(ch for ch in w if ch.isalnum())
+                if clean_w in WORD_GESTURES_MAP:
+                    meta = WORD_GESTURES_MAP[clean_w]
+                    sign_sequence.append(meta["name"])
+                    tokens.append({
+                        "type": "word",
+                        "word": meta["name"],
+                        "emoji": meta["emoji"],
+                        "desc": meta["desc"],
+                        "is_word": True
+                    })
+                else:
+                    letters = [ch for ch in clean_w if ch.isalnum()]
+                    for ch in letters:
+                        sign_sequence.append(ch)
+                    tokens.append({
+                        "type": "spelling",
+                        "word": w,
+                        "letters": letters,
+                        "is_word": False
+                    })
+                sign_sequence.append(' ')
     else:
+        # Fingerspelling mode (letter by letter)
+        words = text.split()
         for w in words:
-            if w in phrases_map:
-                tokens.append({"type": "phrase", "word": phrases_map[w]})
-            else:
-                tokens.append({"type": "word", "word": w, "letters": list(w)})
-            for ch in w:
-                if ch.isalnum() or ch == ' ':
-                    sign_sequence.append(ch)
-            sign_sequence.append(' ') # Pause between words
-            
+            letters = [ch for ch in w if ch.isalnum()]
+            for ch in letters:
+                sign_sequence.append(ch)
+            tokens.append({
+                "type": "spelling",
+                "word": w,
+                "letters": letters,
+                "is_word": False
+            })
+            sign_sequence.append(' ')
+
     if sign_sequence and sign_sequence[-1] == ' ':
         sign_sequence.pop()
 
     return jsonify({
-        "original_text": text,
+        "original_text": raw_text,
+        "mode": mode,
         "tokens": tokens,
         "sequence": sign_sequence,
         "count": len(sign_sequence)
