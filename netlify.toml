@@ -2,6 +2,13 @@
 
 [build]
   publish = "."
+  command = "echo 'Static build complete'"
+
+[build.environment]
+  PIP_REQUIREMENTS_PATH = ""
+  PYTHON_VERSION = "3.10"
+  NETLIFY_USE_PYTHON = "false"
+  PIP_NO_REQUIREMENTS = "1"
 
 [[redirects]]
   from = "/"
@@ -19,3 +26,4 @@
     X-Frame-Options = "DENY"
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
+
