@@ -419,6 +419,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         const cleanSym = data.symbol.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                         handlePracticeSymbol(cleanSym);
                     }
+
+                    // Live 3-Gesture Vault biometric scanning hook
+                    if (typeof checkLiveSignForUnlock === 'function') {
+                        checkLiveSignForUnlock(data);
+                    }
                 }
             }
         } catch (err) {
@@ -1338,9 +1343,420 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Start background status polling, studio and custom gestures
+    // ==========================================
+    // TAB 6: 3-GESTURE LOCK VAULT CONTROLLER
+    // ==========================================
+    let vaultSelectedCombo = []; // [{ gesture: 'PEACE', emoji: '✌️' }]
+    let activeUnlockTargetId = 'msg_demo_001';
+    let unlockSubmittedCombo = []; // [{ gesture: 'PEACE', emoji: '✌️' }]
+    let lastScanSign = '';
+    let scanHoldTimer = 0;
+    let isVerifyingUnlock = false;
+
+    function renderVaultComboSlots() {
+        for (let i = 1; i <= 3; i++) {
+            const slotEl = document.getElementById(`combo-slot-${i}`);
+            if (!slotEl) continue;
+            const emojiEl = slotEl.querySelector('.slot-emoji');
+            const nameEl = slotEl.querySelector('.slot-name');
+
+            if (vaultSelectedCombo[i - 1]) {
+                const item = vaultSelectedCombo[i - 1];
+                slotEl.classList.add('filled');
+                if (emojiEl) emojiEl.textContent = item.emoji || '✨';
+                if (nameEl) nameEl.textContent = item.gesture;
+            } else {
+                slotEl.classList.remove('filled');
+                if (emojiEl) emojiEl.textContent = '❓';
+                if (nameEl) nameEl.textContent = `Gesture ${i}`;
+            }
+        }
+
+        const countEl = document.getElementById('vault-combo-count');
+        if (countEl) {
+            countEl.textContent = `${vaultSelectedCombo.length} / 3 Selected`;
+            countEl.style.color = vaultSelectedCombo.length === 3 ? '#10b981' : '#c084fc';
+        }
+    }
+
+    function addGestureToVaultCombo(gesture, emoji) {
+        if (vaultSelectedCombo.length >= 3) {
+            return;
+        }
+        vaultSelectedCombo.push({ gesture: gesture.toUpperCase(), emoji });
+        renderVaultComboSlots();
+    }
+
+    // Gesture Picker Buttons in Create Vault
+    document.querySelectorAll('.vault-pick-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const g = chip.getAttribute('data-gesture') || '';
+            const em = chip.getAttribute('data-emoji') || '✨';
+            if (g) addGestureToVaultCombo(g, em);
+        });
+    });
+
+    const btnVaultClearCombo = document.getElementById('btn-vault-clear-combo');
+    if (btnVaultClearCombo) {
+        btnVaultClearCombo.addEventListener('click', () => {
+            vaultSelectedCombo = [];
+            renderVaultComboSlots();
+        });
+    }
+
+    const btnVaultCaptureLive = document.getElementById('btn-vault-capture-live');
+    if (btnVaultCaptureLive) {
+        btnVaultCaptureLive.addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                const sym = (data.symbol || '').replace(/[^A-Za-z0-9 ]/g, '').trim().toUpperCase();
+                if (sym && sym !== '-' && sym !== 'NONE') {
+                    const cleanWord = sym.split(' ')[0];
+                    const em = GESTURE_EMOJIS[cleanWord] || data.detected_emoji || '✨';
+                    addGestureToVaultCombo(cleanWord, em);
+                } else {
+                    alert("No clear hand gesture currently detected. Please hold sign in front of camera.");
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    }
+
+    // Create Gesture-Locked Message
+    const btnVaultCreate = document.getElementById('btn-vault-create');
+    const vaultSecretInput = document.getElementById('vault-secret-input');
+    const vaultHintInput = document.getElementById('vault-hint-input');
+    const vaultSenderInput = document.getElementById('vault-sender-input');
+    const vaultBurnCheck = document.getElementById('vault-burn-check');
+    const vaultCreatedAlert = document.getElementById('vault-created-alert');
+    const vaultShareLink = document.getElementById('vault-share-link');
+
+    if (btnVaultCreate) {
+        btnVaultCreate.addEventListener('click', async () => {
+            const message = vaultSecretInput ? vaultSecretInput.value.trim() : '';
+            if (!message) {
+                alert("Please enter confidential message content.");
+                return;
+            }
+            if (vaultSelectedCombo.length !== 3) {
+                alert("Please select exactly 3 gestures for your security combination lock.");
+                return;
+            }
+
+            const payload = {
+                message: message,
+                gesture_combo: vaultSelectedCombo.map(item => item.gesture),
+                hint: vaultHintInput ? vaultHintInput.value.trim() : '',
+                sender: vaultSenderInput ? vaultSenderInput.value.trim() : 'User 1',
+                burn_after_read: vaultBurnCheck ? vaultBurnCheck.checked : false
+            };
+
+            try {
+                const res = await fetch('/api/vault/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    if (vaultCreatedAlert) vaultCreatedAlert.style.display = 'flex';
+                    if (vaultShareLink) vaultShareLink.value = `${window.location.origin}${data.share_url}`;
+                    speakText("Secret message encrypted and locked with 3-gesture security PIN!");
+                    fetchVaultInbox();
+                } else {
+                    alert(data.message || "Failed to create locked message.");
+                }
+            } catch (e) {
+                alert("Error communicating with vault server.");
+            }
+        });
+    }
+
+    const btnCopyVaultLink = document.getElementById('btn-copy-vault-link');
+    if (btnCopyVaultLink && vaultShareLink) {
+        btnCopyVaultLink.addEventListener('click', () => {
+            vaultShareLink.select();
+            navigator.clipboard.writeText(vaultShareLink.value);
+            btnCopyVaultLink.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+            setTimeout(() => {
+                btnCopyVaultLink.innerHTML = '<i class="fa-solid fa-copy"></i> Copy';
+            }, 2000);
+        });
+    }
+
+    // Vault Inbox & Unlocking Logic
+    const vaultInboxList = document.getElementById('vault-inbox-list');
+    const btnRefreshVaultInbox = document.getElementById('btn-refresh-vault-inbox');
+    const challengeSender = document.getElementById('challenge-sender');
+    const challengeHint = document.getElementById('challenge-hint');
+    const unlockEnvelopeId = document.getElementById('unlock-envelope-id');
+    const unlockStatusBanner = document.getElementById('unlock-status-banner');
+    const unlockBannerText = document.getElementById('unlock-banner-text');
+    const vaultDecryptedBox = document.getElementById('vault-decrypted-box');
+    const vaultDecryptedContent = document.getElementById('vault-decrypted-content');
+    const btnSpeakDecrypted = document.getElementById('btn-speak-decrypted');
+    const btnCopyDecrypted = document.getElementById('btn-copy-decrypted');
+    let lastDecryptedText = '';
+
+    async function fetchVaultInbox() {
+        if (!vaultInboxList) return;
+        try {
+            const res = await fetch('/api/vault/list');
+            const data = await res.json();
+            if (data.status === 'success') {
+                renderVaultInbox(data.messages || []);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function renderVaultInbox(messages) {
+        if (!vaultInboxList) return;
+        vaultInboxList.innerHTML = '';
+
+        if (messages.length === 0) {
+            vaultInboxList.innerHTML = '<div class="inbox-loading">No locked messages in vault. Create one on the left!</div>';
+            return;
+        }
+
+        messages.forEach(msg => {
+            const card = document.createElement('div');
+            card.className = `inbox-card-item ${msg.id === activeUnlockTargetId ? 'selected' : ''}`;
+            card.innerHTML = `
+                <div class="inbox-sender"><i class="fa-solid fa-lock"></i> ${msg.sender || 'Anonymous'}</div>
+                <div class="inbox-hint">${msg.hint || '3-Gesture Lock'}</div>
+            `;
+            card.addEventListener('click', () => {
+                selectVaultMessageToUnlock(msg);
+            });
+            vaultInboxList.appendChild(card);
+        });
+    }
+
+    function selectVaultMessageToUnlock(msg) {
+        activeUnlockTargetId = msg.id;
+        document.querySelectorAll('.inbox-card-item').forEach(c => c.classList.remove('selected'));
+        fetchVaultInbox();
+
+        if (unlockEnvelopeId) unlockEnvelopeId.textContent = `ID: ${msg.id}`;
+        if (challengeSender) challengeSender.textContent = msg.sender || 'User 1';
+        if (challengeHint) challengeHint.textContent = msg.hint || '3-Gesture Combination Pattern';
+
+        resetUnlockChallengeState();
+    }
+
+    function resetUnlockChallengeState() {
+        unlockSubmittedCombo = [];
+        isVerifyingUnlock = false;
+        renderUnlockSlots();
+
+        if (unlockStatusBanner) {
+            unlockStatusBanner.className = 'unlock-status-banner initial';
+            if (unlockBannerText) unlockBannerText.textContent = 'Stand in front of camera and perform Gesture #1 to begin authentication';
+        }
+        if (vaultDecryptedBox) vaultDecryptedBox.style.display = 'none';
+    }
+
+    function renderUnlockSlots() {
+        for (let i = 1; i <= 3; i++) {
+            const slot = document.getElementById(`unlock-slot-${i}`);
+            const statusEl = document.getElementById(`unlock-slot-status-${i}`);
+            const labelEl = document.getElementById(`unlock-slot-label-${i}`);
+            if (!slot) continue;
+
+            const targetIdx = i - 1;
+            if (unlockSubmittedCombo[targetIdx]) {
+                slot.className = 'unlock-slot matched';
+                if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #10b981;"></i>';
+                if (labelEl) labelEl.textContent = `${unlockSubmittedCombo[targetIdx].emoji || '✨'} ${unlockSubmittedCombo[targetIdx].gesture}`;
+            } else if (targetIdx === unlockSubmittedCombo.length) {
+                slot.className = 'unlock-slot active';
+                if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-camera"></i>';
+                if (labelEl) labelEl.textContent = `Sign Gesture ${i}`;
+            } else {
+                slot.className = 'unlock-slot';
+                if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-lock"></i>';
+                if (labelEl) labelEl.textContent = `Gesture ${i}`;
+            }
+        }
+    }
+
+    async function handleUnlockGestureDetection(detectedWord, detectedEmoji) {
+        if (!detectedWord || detectedWord === '-' || isVerifyingUnlock) return;
+        if (unlockSubmittedCombo.length >= 3) return;
+
+        const currentStep = unlockSubmittedCombo.length; // 0, 1, or 2
+        unlockSubmittedCombo.push({ gesture: detectedWord, emoji: detectedEmoji });
+        renderUnlockSlots();
+
+        if (unlockStatusBanner) {
+            unlockStatusBanner.className = 'unlock-status-banner in-progress';
+            if (unlockBannerText) {
+                if (unlockSubmittedCombo.length < 3) {
+                    unlockBannerText.textContent = `🟢 Step ${unlockSubmittedCombo.length}/3 Captured: ${detectedEmoji} ${detectedWord}. Now perform Gesture #${unlockSubmittedCombo.length + 1}!`;
+                } else {
+                    unlockBannerText.textContent = `⚡ 3 Gestures Captured! Verifying Security Pattern...`;
+                }
+            }
+        }
+
+        // When all 3 gestures are captured, verify with backend
+        if (unlockSubmittedCombo.length === 3) {
+            isVerifyingUnlock = true;
+            await verifySubmittedUnlockPattern();
+        }
+    }
+
+    async function verifySubmittedUnlockPattern() {
+        try {
+            const payload = {
+                message_id: activeUnlockTargetId,
+                submitted_combo: unlockSubmittedCombo.map(item => item.gesture)
+            };
+
+            const res = await fetch('/api/vault/unlock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (data.status === 'success') {
+                // SUCCESS: ACCESS GRANTED!
+                if (unlockStatusBanner) {
+                    unlockStatusBanner.className = 'unlock-status-banner success';
+                    if (unlockBannerText) unlockBannerText.innerHTML = '<strong>🔓 SUCCESS: ACCESS GRANTED!</strong> Gesture pattern verified.';
+                }
+
+                lastDecryptedText = data.decrypted_text || '';
+                if (vaultDecryptedContent) vaultDecryptedContent.textContent = lastDecryptedText;
+                if (vaultDecryptedBox) vaultDecryptedBox.style.display = 'flex';
+
+                speakText(`Access Granted! Decrypted message: ${lastDecryptedText}`);
+            } else {
+                // FAILURE: INCORRECT GESTURE PATTERN!
+                if (unlockStatusBanner) {
+                    unlockStatusBanner.className = 'unlock-status-banner error';
+                    if (unlockBannerText) unlockBannerText.innerHTML = `<strong>❌ INCORRECT GESTURE PATTERN! Access Denied.</strong>`;
+                }
+
+                speakText("Incorrect gesture pattern. Access denied.");
+
+                // Reset slots after 2.4 seconds for retry
+                setTimeout(() => {
+                    resetUnlockChallengeState();
+                }, 2400);
+            }
+        } catch (e) {
+            console.error(e);
+            isVerifyingUnlock = false;
+        }
+    }
+
+    const btnUnlockResetSlots = document.getElementById('btn-unlock-reset-slots');
+    if (btnUnlockResetSlots) {
+        btnUnlockResetSlots.addEventListener('click', resetUnlockChallengeState);
+    }
+
+    const btnManualConfirmGesture = document.getElementById('btn-manual-confirm-gesture');
+    if (btnManualConfirmGesture) {
+        btnManualConfirmGesture.addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                const sym = (data.symbol || '').replace(/[^A-Za-z0-9 ]/g, '').trim().toUpperCase();
+                if (sym && sym !== '-' && sym !== 'NONE') {
+                    const cleanWord = sym.split(' ')[0];
+                    const em = GESTURE_EMOJIS[cleanWord] || data.detected_emoji || '✨';
+                    handleUnlockGestureDetection(cleanWord, em);
+                } else {
+                    alert("No hand gesture currently detected. Please hold sign in camera view.");
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    }
+
+    if (btnRefreshVaultInbox) {
+        btnRefreshVaultInbox.addEventListener('click', fetchVaultInbox);
+    }
+
+    if (btnSpeakDecrypted) {
+        btnSpeakDecrypted.addEventListener('click', () => {
+            if (lastDecryptedText) speakText(lastDecryptedText);
+        });
+    }
+
+    if (btnCopyDecrypted) {
+        btnCopyDecrypted.addEventListener('click', () => {
+            if (lastDecryptedText) {
+                navigator.clipboard.writeText(lastDecryptedText);
+                btnCopyDecrypted.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                setTimeout(() => {
+                    btnCopyDecrypted.innerHTML = '<i class="fa-solid fa-copy"></i> Copy Text';
+                }, 2000);
+            }
+        });
+    }
+
+    // Auto-populate from URL hash if opened via share link (#vault=msg_1234)
+    if (window.location.hash.startsWith('#vault=')) {
+        const targetId = window.location.hash.replace('#vault=', '').trim();
+        if (targetId) {
+            activeUnlockTargetId = targetId;
+            // Switch to Vault Tab
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            const vaultTabBtn = document.querySelector('.tab-btn[data-tab="tab-gesture-vault"]');
+            const vaultSection = document.getElementById('tab-gesture-vault');
+            if (vaultTabBtn) vaultTabBtn.classList.add('active');
+            if (vaultSection) vaultSection.classList.add('active');
+        }
+    }
+
+    // Check Live Sign in Unlock Station when Vault Tab is active
+    function checkLiveSignForUnlock(data) {
+        const isVaultActive = document.getElementById('tab-gesture-vault') && document.getElementById('tab-gesture-vault').classList.contains('active');
+        if (!isVaultActive) return;
+
+        const liveGestureNameEl = document.getElementById('unlock-live-gesture-name');
+        const sym = (data.symbol || '').replace(/[^A-Za-z0-9 ]/g, '').trim().toUpperCase();
+        if (sym && sym !== '-' && sym !== 'NONE') {
+            const cleanWord = sym.split(' ')[0];
+            const em = GESTURE_EMOJIS[cleanWord] || data.detected_emoji || '✨';
+            if (liveGestureNameEl) liveGestureNameEl.textContent = `${em} ${cleanWord}`;
+
+            // Automatic hold detection (5 consecutive cycles ~ 750ms) to commit into unlock slot
+            if (cleanWord === lastScanSign) {
+                scanHoldTimer++;
+                if (scanHoldTimer === 6 && !isVerifyingUnlock && unlockSubmittedCombo.length < 3) {
+                    handleUnlockGestureDetection(cleanWord, em);
+                }
+            } else {
+                lastScanSign = cleanWord;
+                scanHoldTimer = 1;
+            }
+        } else {
+            if (liveGestureNameEl) liveGestureNameEl.textContent = "Show Hand Sign...";
+            lastScanSign = '';
+            scanHoldTimer = 0;
+        }
+    }
+
+    // Hook checkLiveSignForUnlock into updateSignStatus polling
+    const origUpdateSignStatus = updateSignStatus;
+
+    // Start background status polling, studio, custom gestures, and vault
     updateSignStatus();
     initGestureCanvas();
     initWordsStudio();
     fetchCustomGestures();
+    fetchVaultInbox();
+    renderVaultComboSlots();
+    resetUnlockChallengeState();
 });

@@ -52,6 +52,10 @@
                     <i class="fa-solid fa-comments"></i>
                     <span>Live Dialog</span>
                 </button>
+                <button class="tab-btn" data-tab="tab-gesture-vault">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>Gesture Vault</span>
+                </button>
             </nav>
 
             <div class="header-badges">
@@ -944,6 +948,225 @@
                         <button class="btn btn-primary" id="btn-dialog-send">
                             <i class="fa-solid fa-paper-plane"></i>
                         </button>
+                    </div>
+                </div>
+            </main>
+        </section>
+
+        <!-- TAB 6: GESTURE LOCK VAULT (3-GESTURE COMBINATION LOCK MESSAGING) -->
+        <section class="tab-content" id="tab-gesture-vault">
+            <main class="vault-container">
+                <div class="vault-grid">
+                    <!-- Left: Create 3-Gesture Locked Message -->
+                    <div class="card vault-create-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fa-solid fa-lock" style="color: #6366f1;"></i>
+                                <span>Lock Message with 3-Gesture PIN</span>
+                            </div>
+                            <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc;">Biometric Sign Lock</span>
+                        </div>
+                        <div class="vault-form-body">
+                            <div class="form-group">
+                                <label class="vault-label"><i class="fa-solid fa-feather"></i> Secret Message Content:</label>
+                                <textarea id="vault-secret-input" class="vault-textarea" placeholder="Write confidential message or secret notes (e.g. 'Meet me at Room 204 at 5 PM. Bring the project files')..."></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="vault-combo-header">
+                                    <label class="vault-label"><i class="fa-solid fa-key"></i> Choose 3-Gesture Combination Pattern:</label>
+                                    <span class="vault-combo-counter" id="vault-combo-count">0 / 3 Selected</span>
+                                </div>
+
+                                <!-- 3 Combo Slot Boxes -->
+                                <div class="vault-combo-slots">
+                                    <div class="combo-slot" id="combo-slot-1" data-slot="1">
+                                        <span class="slot-num">1</span>
+                                        <span class="slot-emoji">❓</span>
+                                        <span class="slot-name">Gesture 1</span>
+                                    </div>
+                                    <div class="slot-connector"><i class="fa-solid fa-arrow-right"></i></div>
+                                    <div class="combo-slot" id="combo-slot-2" data-slot="2">
+                                        <span class="slot-num">2</span>
+                                        <span class="slot-emoji">❓</span>
+                                        <span class="slot-name">Gesture 2</span>
+                                    </div>
+                                    <div class="slot-connector"><i class="fa-solid fa-arrow-right"></i></div>
+                                    <div class="combo-slot" id="combo-slot-3" data-slot="3">
+                                        <span class="slot-num">3</span>
+                                        <span class="slot-emoji">❓</span>
+                                        <span class="slot-name">Gesture 3</span>
+                                    </div>
+                                </div>
+
+                                <!-- Quick Gesture Selection Buttons -->
+                                <div class="vault-gesture-picker">
+                                    <button type="button" class="vault-pick-chip" data-gesture="PEACE" data-emoji="✌️">✌️ PEACE</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="TABLET" data-emoji="💊">💊 TABLET</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="WATER" data-emoji="💧">💧 WATER</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="FOOD" data-emoji="🍲">🍲 FOOD</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="ME" data-emoji="☝️">☝️ ME</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="HELP" data-emoji="🆘">🆘 HELP</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="FRIEND" data-emoji="🤝">🤝 FRIEND</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="HOUSE" data-emoji="🏠">🏠 HOUSE</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="THANK YOU" data-emoji="🙏">🙏 THANK YOU</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="MORE" data-emoji="➕">➕ MORE</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="WORK" data-emoji="💼">💼 WORK</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="PLAY" data-emoji="🎮">🎮 PLAY</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="OK" data-emoji="👌">👌 OK</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="I LOVE YOU" data-emoji="🤟">🤟 I LOVE YOU</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="CALL ME" data-emoji="🤙">🤙 CALL ME</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="HELLO" data-emoji="👋">👋 HELLO</button>
+                                    <button type="button" class="vault-pick-chip" data-gesture="GOOD" data-emoji="👍">👍 GOOD</button>
+                                </div>
+
+                                <div class="vault-tools-row">
+                                    <button type="button" class="btn btn-secondary btn-mini" id="btn-vault-capture-live">
+                                        <i class="fa-solid fa-camera"></i> Capture Live Sign from Camera
+                                    </button>
+                                    <button type="button" class="btn btn-secondary btn-mini" id="btn-vault-clear-combo">
+                                        <i class="fa-solid fa-rotate-left"></i> Reset Pattern
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="form-row-vault">
+                                <div class="form-group flex-1">
+                                    <label class="vault-label"><i class="fa-solid fa-lightbulb"></i> Clue / Hint (Optional):</label>
+                                    <input type="text" id="vault-hint-input" class="vault-input" placeholder="e.g. 'Daily essential needs' or 'Friendship signs'...">
+                                </div>
+                                <div class="form-group">
+                                    <label class="vault-label"><i class="fa-solid fa-user-tag"></i> Sender Name:</label>
+                                    <input type="text" id="vault-sender-input" class="vault-input" value="User 1" placeholder="Sender Name">
+                                </div>
+                            </div>
+
+                            <div class="vault-options-row">
+                                <label class="vault-checkbox-label">
+                                    <input type="checkbox" id="vault-burn-check">
+                                    <span>🔥 Burn after reading (Self-destruct on first unlock)</span>
+                                </label>
+                            </div>
+
+                            <button class="btn btn-primary btn-vault-lock" id="btn-vault-create">
+                                <i class="fa-solid fa-shield-halved"></i>
+                                <span>Encrypt &amp; Lock Message (3-Gesture PIN)</span>
+                            </button>
+
+                            <!-- Created Confirmation Box -->
+                            <div class="vault-success-box" id="vault-created-alert" style="display: none;">
+                                <div class="alert-icon"><i class="fa-solid fa-circle-check"></i></div>
+                                <div class="alert-content">
+                                    <strong>Message Locked &amp; Secured!</strong>
+                                    <p>Share this Message ID or Link with User 2 to unlock via 3-gesture camera scan:</p>
+                                    <div class="share-link-wrapper">
+                                        <input type="text" id="vault-share-link" readonly>
+                                        <button class="btn btn-secondary btn-mini" id="btn-copy-vault-link"><i class="fa-solid fa-copy"></i> Copy</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Interactive 3-Gesture Biometric Unlock Station -->
+                    <div class="card vault-unlock-card" id="vault-unlock-station">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fa-solid fa-fingerprint" style="color: #10b981;"></i>
+                                <span>3-Gesture Biometric Unlock Station</span>
+                            </div>
+                            <span class="badge" id="unlock-envelope-id">No Message Selected</span>
+                        </div>
+
+                        <div class="vault-unlock-body">
+                            <!-- Messages Selector Ribbon -->
+                            <div class="vault-inbox-header">
+                                <span class="inbox-title"><i class="fa-solid fa-inbox"></i> Select Locked Envelope:</span>
+                                <button class="btn btn-secondary btn-mini" id="btn-refresh-vault-inbox"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                            </div>
+                            <div class="vault-inbox-list" id="vault-inbox-list">
+                                <div class="inbox-loading">Loading locked messages...</div>
+                            </div>
+
+                            <!-- Active Challenge Card -->
+                            <div class="vault-challenge-box" id="vault-challenge-box">
+                                <div class="challenge-meta">
+                                    <div class="challenge-sender-badge"><i class="fa-solid fa-user-lock"></i> <span id="challenge-sender">Varun</span></div>
+                                    <div class="challenge-hint"><i class="fa-solid fa-lightbulb"></i> Hint: <em id="challenge-hint">Peace -> Medicine -> Drink</em></div>
+                                </div>
+
+                                <!-- Live Video Feed Scanner Target Overlay -->
+                                <div class="unlock-camera-container">
+                                    <div class="unlock-camera-frame">
+                                        <img src="/video_feed" alt="Camera Stream" class="unlock-stream-img">
+                                        <div class="unlock-scanner-reticle">
+                                            <div class="reticle-corner tl"></div>
+                                            <div class="reticle-corner tr"></div>
+                                            <div class="reticle-corner bl"></div>
+                                            <div class="reticle-corner br"></div>
+                                            <div class="scanner-laser-line"></div>
+                                            <div class="live-detected-badge" id="unlock-live-gesture">
+                                                <i class="fa-solid fa-hand"></i> <span id="unlock-live-gesture-name">Show Hand Sign...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 3-Gesture Verification Challenge Slots -->
+                                <div class="unlock-combo-slots">
+                                    <div class="unlock-slot active" id="unlock-slot-1">
+                                        <span class="unlock-slot-num">1</span>
+                                        <span class="unlock-slot-status" id="unlock-slot-status-1"><i class="fa-solid fa-camera"></i></span>
+                                        <span class="unlock-slot-label" id="unlock-slot-label-1">Sign Gesture 1</span>
+                                    </div>
+                                    <div class="slot-connector"><i class="fa-solid fa-arrow-right"></i></div>
+                                    <div class="unlock-slot" id="unlock-slot-2">
+                                        <span class="unlock-slot-num">2</span>
+                                        <span class="unlock-slot-status" id="unlock-slot-status-2"><i class="fa-solid fa-lock"></i></span>
+                                        <span class="unlock-slot-label" id="unlock-slot-label-2">Sign Gesture 2</span>
+                                    </div>
+                                    <div class="slot-connector"><i class="fa-solid fa-arrow-right"></i></div>
+                                    <div class="unlock-slot" id="unlock-slot-3">
+                                        <span class="unlock-slot-num">3</span>
+                                        <span class="unlock-slot-status" id="unlock-slot-status-3"><i class="fa-solid fa-lock"></i></span>
+                                        <span class="unlock-slot-label" id="unlock-slot-label-3">Sign Gesture 3</span>
+                                    </div>
+                                </div>
+
+                                <!-- Verification Progress & Status Alerts -->
+                                <div class="unlock-status-banner initial" id="unlock-status-banner">
+                                    <i class="fa-solid fa-shield" id="unlock-banner-icon"></i>
+                                    <span id="unlock-banner-text">Stand in front of camera and perform Gesture #1 to begin authentication</span>
+                                </div>
+
+                                <div class="unlock-actions-row">
+                                    <button class="btn btn-secondary btn-mini" id="btn-unlock-reset-slots">
+                                        <i class="fa-solid fa-rotate-left"></i> Restart Gesture Scan
+                                    </button>
+                                    <button class="btn btn-emerald btn-mini" id="btn-manual-confirm-gesture">
+                                        <i class="fa-solid fa-hand-pointer"></i> Confirm Current Sign
+                                    </button>
+                                </div>
+
+                                <!-- Decrypted Secret Message Reveal Card -->
+                                <div class="vault-decrypted-card" id="vault-decrypted-box" style="display: none;">
+                                    <div class="decrypted-header">
+                                        <div class="decrypted-badge"><i class="fa-solid fa-unlock-keyhole"></i> <span>ACCESS GRANTED &bull; DECRYPTED MESSAGE</span></div>
+                                    </div>
+                                    <div class="decrypted-message-body" id="vault-decrypted-content">
+                                        <!-- Secret message content goes here -->
+                                    </div>
+                                    <div class="decrypted-toolbar">
+                                        <button class="btn btn-primary" id="btn-speak-decrypted">
+                                            <i class="fa-solid fa-volume-high"></i> Speak Aloud
+                                        </button>
+                                        <button class="btn btn-secondary" id="btn-copy-decrypted">
+                                            <i class="fa-solid fa-copy"></i> Copy Text
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </main>

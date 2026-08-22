@@ -1583,6 +1583,160 @@ def api_capture_live_landmarks():
         "raw_pts": pts
     })
 
+# ==========================================
+# 3-Gesture Combination Lock Secret Vault Engine
+# ==========================================
+import uuid
+import base64
+
+gesture_vault = {
+    "msg_demo_001": {
+        "id": "msg_demo_001",
+        "sender": "Varun",
+        "encrypted_payload": base64.b64encode("Welcome to GestureLock Vault! Your 3-gesture biometric key was verified successfully.".encode('utf-8')).decode('utf-8'),
+        "gesture_combo": ["PEACE", "TABLET", "WATER"],
+        "hint": "Peace -> Medicine -> Drink",
+        "burn_after_read": False,
+        "unlocked": False,
+        "attempts": 0,
+        "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+}
+
+@app.route('/api/vault/create', methods=['POST'])
+def api_vault_create():
+    data = request.json or {}
+    message = data.get('message', '').strip()
+    combo = data.get('gesture_combo', [])
+    hint = data.get('hint', '').strip()
+    sender = data.get('sender', 'Anonymous').strip()
+    burn_after_read = bool(data.get('burn_after_read', False))
+    
+    if not message:
+        return jsonify({"status": "error", "message": "Message content cannot be empty."}), 400
+        
+    if not combo or len(combo) != 3:
+        return jsonify({"status": "error", "message": "Exactly 3 gestures are required for the security pattern PIN."}), 400
+        
+    clean_combo = [str(g).strip().upper() for g in combo]
+    msg_id = f"msg_{uuid.uuid4().hex[:8]}"
+    
+    encoded_payload = base64.b64encode(message.encode('utf-8')).decode('utf-8')
+    
+    record = {
+        "id": msg_id,
+        "sender": sender,
+        "encrypted_payload": encoded_payload,
+        "gesture_combo": clean_combo,
+        "hint": hint or "3-Gesture Hand Pattern",
+        "burn_after_read": burn_after_read,
+        "unlocked": False,
+        "attempts": 0,
+        "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    gesture_vault[msg_id] = record
+    
+    return jsonify({
+        "status": "success",
+        "message_id": msg_id,
+        "hint": record["hint"],
+        "burn_after_read": burn_after_read,
+        "share_url": f"/app#vault={msg_id}"
+    })
+
+@app.route('/api/vault/list', methods=['GET'])
+def api_vault_list():
+    envelopes = []
+    for mid, item in gesture_vault.items():
+        envelopes.append({
+            "id": item["id"],
+            "sender": item["sender"],
+            "hint": item["hint"],
+            "burn_after_read": item["burn_after_read"],
+            "unlocked": item["unlocked"],
+            "attempts": item["attempts"],
+            "created_at": item["created_at"],
+            "combo_length": len(item["gesture_combo"])
+        })
+    envelopes.reverse()
+    return jsonify({"status": "success", "messages": envelopes, "count": len(envelopes)})
+
+@app.route('/api/vault/message/<msg_id>', methods=['GET'])
+def api_vault_get_message(msg_id):
+    item = gesture_vault.get(msg_id)
+    if not item:
+        return jsonify({"status": "error", "message": "Locked message not found or may have been burned."}), 404
+        
+    return jsonify({
+        "status": "success",
+        "id": item["id"],
+        "sender": item["sender"],
+        "hint": item["hint"],
+        "burn_after_read": item["burn_after_read"],
+        "unlocked": item["unlocked"],
+        "attempts": item["attempts"],
+        "created_at": item["created_at"],
+        "combo_length": len(item["gesture_combo"])
+    })
+
+@app.route('/api/vault/unlock', methods=['POST'])
+def api_vault_unlock():
+    data = request.json or {}
+    msg_id = data.get('message_id', '')
+    submitted_combo = data.get('submitted_combo', [])
+    
+    item = gesture_vault.get(msg_id)
+    if not item:
+        return jsonify({"status": "error", "message": "Locked message not found or has expired/burned."}), 404
+        
+    clean_submitted = [str(g).strip().upper() for g in submitted_combo]
+    expected_combo = item["gesture_combo"]
+    
+    if len(clean_submitted) != 3:
+        return jsonify({
+            "status": "error",
+            "message": "❌ Incorrect Gesture Pattern! Exactly 3 gestures required.",
+            "attempts": item["attempts"]
+        }), 400
+        
+    # Sequential Pattern Match Verification
+    if clean_submitted == expected_combo:
+        # Success - Decrypt payload
+        item["unlocked"] = True
+        try:
+            decrypted_text = base64.b64decode(item["encrypted_payload"].encode('utf-8')).decode('utf-8')
+        except Exception:
+            decrypted_text = "Decryption error."
+            
+        burned = False
+        if item["burn_after_read"]:
+            gesture_vault.pop(msg_id, None)
+            burned = True
+            
+        return jsonify({
+            "status": "success",
+            "message": "🔓 Access Granted! Gesture pattern verified successfully.",
+            "decrypted_text": decrypted_text,
+            "sender": item["sender"],
+            "burned": burned
+        })
+    else:
+        item["attempts"] += 1
+        return jsonify({
+            "status": "error",
+            "message": "❌ Incorrect Gesture Pattern! Access Denied.",
+            "attempts": item["attempts"],
+            "submitted_count": len(clean_submitted)
+        }), 403
+
+@app.route('/api/vault/message/<msg_id>', methods=['DELETE'])
+def api_vault_delete_message(msg_id):
+    if msg_id in gesture_vault:
+        gesture_vault.pop(msg_id, None)
+        return jsonify({"status": "success", "message": "Message deleted."})
+    return jsonify({"status": "error", "message": "Message not found."}), 404
+
 if __name__ == '__main__':
     print("\n=======================================================")
     print("  Sign Language Web Application Server Started!")
