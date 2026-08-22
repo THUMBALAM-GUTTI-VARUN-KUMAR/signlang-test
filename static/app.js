@@ -49,6 +49,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCopy = document.getElementById('btn-copy');
     const btnDownload = document.getElementById('btn-download');
     const btnSendToDialog = document.getElementById('btn-send-to-dialog');
+    const cooldownTimerWrap = document.getElementById('cooldown-timer-wrap');
+    const cooldownTimerText = document.getElementById('cooldown-timer-text');
+    const cooldownTimerBar = document.getElementById('cooldown-timer-bar');
 
     let previousSymbol = '-';
     let isPolling = false;
@@ -374,6 +377,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         } else {
                             handIndicator.className = 'status-dot gray';
                             handText.textContent = 'No Hand';
+                        }
+
+                        // 3-Second Pacing Gap Cooldown Bar & Label Status
+                        if (data.is_locked_in_cooldown && data.cooldown_remaining > 0) {
+                            if (cooldownTimerWrap) cooldownTimerWrap.style.display = 'block';
+                            if (cooldownTimerText) cooldownTimerText.textContent = `Next sign in ${data.cooldown_remaining.toFixed(1)}s`;
+                            if (cooldownTimerBar) cooldownTimerBar.style.width = `${((data.cooldown_remaining / (data.cooldown_total || 3.0)) * 100)}%`;
+                            if (charBoxLabel) charBoxLabel.innerHTML = `<span style="color: #c4b5fd;"><i class="fa-solid fa-hourglass-half fa-spin"></i> 3s Gap (${data.cooldown_remaining.toFixed(1)}s)</span>`;
+                        } else {
+                            if (cooldownTimerWrap) cooldownTimerWrap.style.display = 'none';
+                            if (charBoxLabel) charBoxLabel.textContent = currentMode === 'word' ? 'Active Word (Ready)' : 'Character :';
                         }
 
                         // Track newly added or cleared words in sentence for gesture ribbon

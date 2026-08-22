@@ -45,6 +45,9 @@ class SignLanguageEngine:
         self.prev_char = ""
         
         self.raw_frame = None
+        self.skeleton_frame = None
+        self.raw_frame_jpeg = None
+        self.skeleton_frame_jpeg = None
         self.mode = "word"  # 'word' (one-gesture full word & smart sentences) or 'letter' (classic fingerspelling)
         self.detected_emoji = "✨"
         self.word_hold_counter = 0
@@ -107,9 +110,8 @@ class SignLanguageEngine:
     def initialize_engine(self):
         print("[Engine] Loading model...")
         self.model = load_model(model_path)
-        print("[Engine] Initializing detectors (hd & hd2)...")
+        print("[Engine] Initializing detector (hd)...")
         self.hd = HandDetector(maxHands=2, detectionCon=0.60, minTrackCon=0.5)
-        self.hd2 = HandDetector(maxHands=1, detectionCon=0.60, minTrackCon=0.5)
         try:
             self.dict_enchant = enchant.Dict("en-US")
         except Exception as e:
@@ -117,7 +119,9 @@ class SignLanguageEngine:
             self.dict_enchant = None
             
         print("[Engine] Initializing camera...")
-        self.vs = cv2.VideoCapture(0)
+        self.vs = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        if not self.vs or not self.vs.isOpened():
+            self.vs = cv2.VideoCapture(0)
         self.vs.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.vs.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.vs.set(cv2.CAP_PROP_FPS, 30)
@@ -236,6 +240,11 @@ class SignLanguageEngine:
         if index_up and pinky_up and not middle_up and not ring_up and not thumb_extended:
             return "ROCK ON", 0.95, "🤘"
             
+        # 15. "DOCTOR" (🩺) - Two fingers together (Index + Middle extended parallel, pulse check sign)
+        index_middle_parallel = index_up and middle_up and not ring_up and not pinky_up and index_middle_ratio < 0.16
+        if index_middle_parallel and not thumb_extended:
+            return "DOCTOR", 0.97, "🩺"
+            
         return None
 
     def _detect_two_handed_gesture(self, pts1, pts2):
@@ -325,6 +334,12 @@ class SignLanguageEngine:
         if l_f and r_f and index_tips_dist < 0.8:
             return "FAMILY", 0.98, "👨‍👩‍👧‍👦"
 
+        # 10. "DOCTOR" (🩺) - Dominant hand tapping wrist of non-dominant hand (Pulse check)
+        r_on_l_wrist = (self.distance(right_pts[8], left_pts[0]) / avg_scale < 1.0) or (self.distance(right_pts[12], left_pts[0]) / avg_scale < 1.0)
+        l_on_r_wrist = (self.distance(left_pts[8], right_pts[0]) / avg_scale < 1.0) or (self.distance(left_pts[12], right_pts[0]) / avg_scale < 1.0)
+        if (r_on_l_wrist or l_on_r_wrist) and (wrist_dist < 1.6):
+            return "DOCTOR", 0.98, "🩺"
+
         return None
 
     def _draw_skeleton_on_canvas(self, canvas, pts, os_x, os_y, color=(0, 255, 0)):
@@ -382,23 +397,11 @@ class SignLanguageEngine:
 
                 hand = hands[0]
                 x, y, w, h = hand['bbox']
-                ymin = max(0, y - self.offset)
-                ymax = min(frame.shape[0], y + h + self.offset)
                 xmin = max(0, x - self.offset)
-                xmax = min(frame.shape[1], x + w + self.offset)
+                ymin = max(0, y - self.offset)
                 
-                cropped = frame[ymin:ymax, xmin:xmax]
-                self.pts = []
-                if cropped.size > 0:
-                    try:
-                        handz, _ = self.hd2.findHands(cropped, draw=False, flipType=True)
-                        if handz and len(handz) > 0 and 'lmList' in handz[0]:
-                            self.pts = handz[0]['lmList']
-                    except Exception:
-                        pass
-                        
-                if not self.pts or len(self.pts) < 21:
-                    self.pts = [[int(p[0] - xmin), int(p[1] - ymin)] for p in hand['lmList']]
+                # Directly map landmarks without redundant second MediaPipe pass (3x faster!)
+                self.pts = [[int(p[0] - xmin), int(p[1] - ymin)] for p in hand['lmList']]
 
                 # Draw skeleton canvas
                 if len(sorted_hands) == 1 and len(self.pts) >= 21:
@@ -427,15 +430,23 @@ class SignLanguageEngine:
                 with self.pending_lock:
                     self.pending_skeleton = None
 
+            # Pre-encode JPEGs for video streams once per frame (ultra-fast, zero redundant thread encoding)
+            ret_raw, raw_buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+            ret_skel, skel_buf = cv2.imencode('.jpg', white, [cv2.IMWRITE_JPEG_QUALITY, 60])
+            raw_bytes = raw_buf.tobytes() if ret_raw else None
+            skel_bytes = skel_buf.tobytes() if ret_skel else None
+
             with self.lock:
                 self.hand_detected = detected
                 self.raw_frame = frame
                 self.skeleton_frame = white
+                self.raw_frame_jpeg = raw_bytes
+                self.skeleton_frame_jpeg = skel_bytes
                 if not detected:
                     self.current_symbol = "-"
                     self.confidence = 0.0
                 
-            time.sleep(0.005)
+            time.sleep(0.001)
 
     def _async_predict_worker(self):
         while self.running:
@@ -450,12 +461,13 @@ class SignLanguageEngine:
                     self._predict(skeleton_to_process)
                 except Exception as e:
                     print(f"Prediction worker error: {e}")
+                time.sleep(0.025)
             else:
                 if not self.hand_detected:
                     with self.lock:
                         self.current_symbol = "-"
                         self.confidence = 0.0
-                time.sleep(0.02)
+                time.sleep(0.03)
 
     def _predict(self, test_image):
         if not self.hand_detected:
@@ -481,15 +493,16 @@ class SignLanguageEngine:
                     self.last_detected_candidate = word
                     self.word_hold_counter = 1
                     
-                if self.word_hold_counter >= 8:
-                    if word != self.last_committed_word or (now - self.last_committed_time) > 2.0:
-                        self.last_committed_word = word
-                        self.last_committed_time = now
-                        with self.lock:
-                            if self.sentence and not self.sentence.endswith(" "):
-                                self.sentence += " "
-                            self.sentence += word + " "
-                            self._update_suggestions()
+                # 3.0-second time gap between gestures to prevent intermediate transitions
+                time_since_last_commit = (now - self.last_committed_time) if self.last_committed_time > 0 else 999.0
+                if self.word_hold_counter >= 8 and time_since_last_commit >= 3.0:
+                    self.last_committed_word = word
+                    self.last_committed_time = now
+                    with self.lock:
+                        if self.sentence and not self.sentence.endswith(" "):
+                            self.sentence += " "
+                        self.sentence += word + " "
+                        self._update_suggestions()
                 return
 
         if not self.pts or len(self.pts) < 21:
@@ -511,16 +524,16 @@ class SignLanguageEngine:
                 self.last_detected_candidate = word
                 self.word_hold_counter = 1
                 
-            # Responsive hold threshold (8 cycles ~400ms) to commit word into sentence chain
-            if self.word_hold_counter >= 8:
-                if word != self.last_committed_word or (now - self.last_committed_time) > 2.0:
-                    self.last_committed_word = word
-                    self.last_committed_time = now
-                    with self.lock:
-                        if self.sentence and not self.sentence.endswith(" "):
-                            self.sentence += " "
-                        self.sentence += word + " "
-                        self._update_suggestions()
+            # 3.0-second time gap between gestures to prevent intermediate transitions
+            time_since_last_commit = (now - self.last_committed_time) if self.last_committed_time > 0 else 999.0
+            if self.word_hold_counter >= 8 and time_since_last_commit >= 3.0:
+                self.last_committed_word = word
+                self.last_committed_time = now
+                with self.lock:
+                    if self.sentence and not self.sentence.endswith(" "):
+                        self.sentence += " "
+                    self.sentence += word + " "
+                    self._update_suggestions()
             return
         elif self.mode == "word":
             with self.lock:
@@ -903,6 +916,7 @@ class SignLanguageEngine:
                     self.sentence = self.sentence[:-1]
                 self.last_committed_word = ""
                 self.last_detected_candidate = ""
+                self.last_committed_time = 0.0
                 self.word_hold_counter = 0
             elif char == "Space":
                 self.sentence += " "
@@ -926,6 +940,7 @@ class SignLanguageEngine:
             self.suggestions = []
             self.last_committed_word = ""
             self.last_detected_candidate = ""
+            self.last_committed_time = 0.0
             self.word_hold_counter = 0
 
     def _update_suggestions(self):
@@ -943,6 +958,9 @@ class SignLanguageEngine:
 
     def get_status(self):
         with self.lock:
+            now = time.time()
+            elapsed_since_commit = (now - self.last_committed_time) if self.last_committed_time > 0 else 999.0
+            cooldown_left = max(0.0, round(3.0 - elapsed_since_commit, 1)) if self.last_committed_time > 0 else 0.0
             tokens = [t.strip().upper() for t in self.sentence.split() if t.strip()]
             polished = polish_asl_sentence(tokens, tone="natural") if tokens else ""
             return {
@@ -956,7 +974,10 @@ class SignLanguageEngine:
                 "word": self.word,
                 "suggestions": self.suggestions,
                 "hand_detected": self.hand_detected,
-                "num_hands_detected": self.num_hands_detected
+                "num_hands_detected": self.num_hands_detected,
+                "cooldown_remaining": cooldown_left,
+                "cooldown_total": 3.0,
+                "is_locked_in_cooldown": cooldown_left > 0.0
             }
 
 engine = SignLanguageEngine()
@@ -985,24 +1006,17 @@ def api_mode():
 
 def gen_frames(feed_type='camera'):
     while True:
-        frame = None
+        frame_bytes = None
         with engine.lock:
-            if feed_type == 'camera' and engine.raw_frame is not None:
-                frame = engine.raw_frame
-            elif feed_type == 'skeleton' and engine.skeleton_frame is not None:
-                frame = engine.skeleton_frame
+            if feed_type == 'camera':
+                frame_bytes = engine.raw_frame_jpeg
+            elif feed_type == 'skeleton':
+                frame_bytes = engine.skeleton_frame_jpeg
                 
-        if frame is None:
-            frame = np.zeros((300, 300, 3), np.uint8)
-            cv2.putText(frame, "Waiting for Camera...", (30, 150),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-                        
-        ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 65])
-        if ret:
-            frame_bytes = buffer.tobytes()
+        if frame_bytes is not None:
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-        time.sleep(0.015)
+        time.sleep(0.033)
 
 @app.route('/video_feed')
 def video_feed():
@@ -1153,10 +1167,11 @@ def api_verify_word():
 # ==========================================
 # CUSTOM GESTURE STUDIO ENDPOINTS
 # ==========================================
-@app.route('/api/custom_gestures', methods=['GET', 'POST'])
+@app.route('/api/custom_gestures', methods=['GET', 'POST', 'HEAD'])
 def api_custom_gestures():
-    if request.method == 'GET':
+    if request.method in ('GET', 'HEAD'):
         return jsonify({
+            "status": "success",
             "gestures": engine.custom_gestures,
             "count": len(engine.custom_gestures)
         })
@@ -1218,10 +1233,12 @@ def polish_asl_sentence(tokens, tone="natural"):
     if not tokens:
         return ""
     
-    cleaned = [t.strip().upper() for t in tokens if t.strip()]
-    if not cleaned:
+    raw_cleaned = [t.strip().upper() for t in tokens if t.strip()]
+    if not raw_cleaned:
         return ""
 
+    # Deduplicate consecutive identical tokens (e.g. ['DOCTOR', 'DOCTOR'] -> ['DOCTOR'])
+    cleaned = [k for i, k in enumerate(raw_cleaned) if i == 0 or k != raw_cleaned[i-1]]
     joined = " ".join(cleaned)
     
     patterns = {
@@ -1229,10 +1246,8 @@ def polish_asl_sentence(tokens, tone="natural"):
         "HELLO": "Hello!",
         "HELLO YOU": "Hello, good to see you!",
         "HELLO YOU GOOD": "Hello, it is wonderful to see you!",
-        "HELLO HOW YOU": "Hello! How are you doing?",
-        # 1. Greetings & Introductions
-        "HELLO": "Hello!",
-        "HELLO HOW YOU": "Hello, how are you doing today?",
+        "HELLO HOW YOU": "Hello! How are you doing today?",
+        "HELLO HOW ARE YOU": "Hello! How are you doing today?",
         "NICE MEET YOU": "It is very nice to meet you.",
         "GOOD MORNING": "Good morning, hope you have a great day!",
         "GOOD AFTERNOON": "Good afternoon!",
@@ -1242,7 +1257,19 @@ def polish_asl_sentence(tokens, tone="natural"):
         "SEE YOU LATER": "See you later!",
         "HAVE GOOD DAY": "Have a wonderful day ahead!",
 
-        # 2. Medical & Emergency Assistance (10 Sentences)
+        # Medical & Emergency Assistance
+        "DOCTOR": "Doctor / Medical assistance needed.",
+        "CALL DOCTOR": "Please call a doctor right away!",
+        "HELP DOCTOR": "Please call a doctor immediately, I need medical help!",
+        "DOCTOR HELP": "Doctor, please help me!",
+        "DOCTOR PLEASE": "Please get a doctor for me as soon as possible.",
+        "ME DOCTOR": "I need to see a doctor.",
+        "ME NEED DOCTOR": "I urgently need a doctor, please.",
+        "ME WANT DOCTOR": "I would like to see a doctor.",
+        "ME SICK DOCTOR": "I am feeling sick and need to see a doctor.",
+        "HELLO DOCTOR": "Hello doctor!",
+        "THANK YOU DOCTOR": "Thank you very much, doctor!",
+        "WHERE DOCTOR": "Where can I find a doctor or medical clinic?",
         "TABLET": "Tablet / Medicine.",
         "MEDICINE": "Medicine.",
         "ME TABLET": "Please bring me my tablet / medicine.",
@@ -1250,13 +1277,13 @@ def polish_asl_sentence(tokens, tone="natural"):
         "ME WANT TABLET": "I need to take my medicine tablet, please.",
         "ME NEED TABLET": "I urgently need to take my tablet / medicine.",
         "TABLET WATER": "Please bring me my tablet / medicine with a glass of water.",
+        "WATER TABLET": "Please bring me my tablet / medicine with a glass of water.",
         "HELP TABLET": "Urgent: I need my medicine tablet immediately!",
         "HELP MEDICINE": "Urgent: I need my medicine immediately!",
-        "CALL DOCTOR": "Please call a doctor right away!",
         "WHERE HOSPITAL": "Where is the nearest hospital or clinic?",
         "ME SICK": "I am feeling sick and unwell, I need help.",
 
-        # 3. Food, Drink & Daily Nutrition (10 Sentences)
+        # Food, Drink & Daily Nutrition
         "WATER": "Water.",
         "FOOD": "Food / Meal.",
         "WATER PLEASE": "Could I please have a glass of water?",
@@ -1265,44 +1292,63 @@ def polish_asl_sentence(tokens, tone="natural"):
         "ME THIRSTY": "I am feeling thirsty.",
         "ME WANT FOOD": "I would like to have some food, please.",
         "ME WANT WATER": "Could I please have some water to drink?",
+        "ME NEED WATER": "I need some drinking water, please.",
+        "ME NEED FOOD": "I need some food, please.",
         "MORE WATER": "Could I please have some more water?",
         "MORE FOOD": "Could I please have some more food?",
         "FOOD WATER": "Could I please have both food and water?",
+        "WATER FOOD": "Could I please have both food and water?",
         "WHERE WATER": "Where can I find drinking water?",
-        "WHERE FOOD": "Where is the cafeteria / food served?",
+        "WHERE FOOD": "Where is the cafeteria or food area?",
 
-        # 4. Restroom, Hygiene & Comfort (6 Sentences)
+        # Restroom, Hygiene & Comfort
         "RESTROOM": "Restroom / Bathroom.",
         "WHERE RESTROOM": "Excuse me, where is the nearest restroom?",
         "WHERE BATHROOM": "Excuse me, where is the bathroom?",
         "WHERE TOILET": "Excuse me, where is the toilet?",
         "ME WANT RESTROOM": "I need to go to the restroom, please.",
+        "ME NEED RESTROOM": "I need to use the restroom, please.",
         "ME SLEEP": "I am feeling exhausted and would like to sleep.",
         "ME TIRED": "I am feeling very tired.",
+        "ME TIRED SLEEP": "I am feeling very tired and want to rest and sleep.",
 
-        # 5. House, Family & Friendship (8 Sentences)
+        # House, Family & Friendship
         "HOUSE": "House / Home.",
         "BOOK": "Book / Reading.",
         "FAMILY": "Family.",
         "FRIEND": "Friend.",
         "PLAY": "Play / Recreation.",
+        "I HOUSE": "I am at home.",
+        "ME HOUSE": "I am at home.",
+        "I GO HOUSE": "I would like to go home now.",
         "ME GO HOUSE": "I would like to go home now.",
+        "I WANT HOUSE": "I would like to go home now.",
+        "ME WANT HOUSE": "I would like to go home now.",
+        "I WORK HOUSE": "I am working from home today.",
+        "ME WORK HOUSE": "I am working from home today.",
+        "I LOVE HOUSE": "I love my home.",
+        "ME LOVE HOUSE": "I love my home.",
+        "I BOOK": "I would like to read a book.",
+        "ME BOOK": "I would like to read a book.",
         "FAMILY HOUSE": "My family is at home.",
         "I LOVE FAMILY": "I love my family very much!",
+        "HELLO FRIEND": "Hello, my friend!",
         "THANK YOU FRIEND": "Thank you so much, my friend!",
         "FRIEND COME HOUSE": "My friend is coming to my house.",
         "WANT READ BOOK": "I would like to read a book.",
         "PLAY GAME FRIEND": "Let us play a game together, friend!",
 
-        # 6. Work, Tasks & Collaboration (6 Sentences)
+        # Work, Tasks & Collaboration
         "WORK": "Work / Job.",
+        "I WORK": "I am working on my tasks right now.",
         "ME WORK": "I am working on my tasks right now.",
+        "I WORK HOUSE": "I am working from home today.",
         "ME WORK HOUSE": "I am working from home today.",
         "HELP WORK": "Could you please help me with this work?",
         "MORE WORK": "There is more work to be completed.",
         "STOP WORK": "Let us take a break and stop working for now.",
 
-        # 7. Polite Expressions & Social Needs (10 Sentences)
+        # Polite Expressions & Social Needs
         "HELP ME": "Please help me!",
         "HELP ME PLEASE": "Please help me, I need assistance.",
         "PLEASE HELP": "Could you please help me?",
@@ -1340,62 +1386,112 @@ def polish_asl_sentence(tokens, tone="natural"):
                     break
         
         if not matched_custom:
-            # Generalized linguistic grammar rules:
-            words = []
-            for w in cleaned:
-                if w == "ME":
-                    words.append("I")
-                elif w == "YOU":
-                    words.append("you")
-                elif w == "WANT":
-                    words.append("would like")
-                elif w == "NEED":
-                    words.append("need")
-                elif w in ("TABLET", "MEDICINE"):
-                    words.append("my medicine")
-                elif w == "FOOD":
-                    words.append("some food")
-                elif w == "SLEEP":
-                    words.append("to rest and sleep")
-                elif w in ("RESTROOM", "BATHROOM", "TOILET"):
-                    words.append("to use the restroom")
-                elif w == "DOCTOR":
-                    words.append("a doctor")
-                elif w == "SICK":
-                    words.append("sick")
-                elif w == "GOOD":
-                    words.append("good")
-                elif w == "BAD":
-                    words.append("bad")
-                elif w == "WATER":
-                    words.append("water")
-                elif w == "HELP":
-                    words.append("help")
-                elif w == "PLEASE":
-                    words.append("please")
+            token_set = set(cleaned)
+            # High-priority composite intent framing
+            if "HOUSE" in token_set and ("I" in token_set or "ME" in token_set):
+                if "WORK" in token_set:
+                    res = "I am working from home today."
+                elif "GO" in token_set or "WANT" in token_set or "NEED" in token_set:
+                    res = "I would like to go home now."
+                elif "LOVE" in token_set:
+                    res = "I love my home."
                 else:
-                    words.append(w.lower())
-                    
-            text = " ".join(words)
-            if text.startswith("I ") and not any(text.startswith(f"I {v}") for v in ["am", "would like", "need", "have", "can", "will", "love"]):
-                parts = text.split(" ", 1)
-                text = f"I am {parts[1]}"
-            elif text.startswith("you ") and not any(text.startswith(f"you {v}") for v in ["are", "would like", "need", "have", "can"]):
-                parts = text.split(" ", 1)
-                text = f"You are {parts[1]}"
-                
-            text = text[0].upper() + text[1:] if text else ""
-            
-            if text.lower().startswith(("where", "what", "when", "why", "who", "how", "do you", "would you", "is")):
-                if not text.endswith("?"):
-                    text += "?"
-            elif text.lower().startswith(("please help", "help", "hello", "goodbye", "i love you")):
-                if not text.endswith("!"):
-                    text += "!"
+                    res = "I am at home."
+            elif "BOOK" in token_set and ("I" in token_set or "ME" in token_set or "WANT" in token_set):
+                res = "I would like to read a book."
+            elif "DOCTOR" in token_set and ("HELP" in token_set or "CALL" in token_set):
+                res = "Please call a doctor right away, I need medical help!"
+            elif "DOCTOR" in token_set and ("ME" in token_set or "I" in token_set or "WANT" in token_set or "NEED" in token_set):
+                res = "I need to see a doctor as soon as possible."
+            elif "DOCTOR" in token_set and "HELLO" in token_set:
+                res = "Hello doctor, I need some assistance."
+            elif ("TABLET" in token_set or "MEDICINE" in token_set) and "WATER" in token_set:
+                res = "Please bring me my medicine tablet with a glass of water."
+            elif ("TABLET" in token_set or "MEDICINE" in token_set) and ("ME" in token_set or "I" in token_set or "NEED" in token_set or "WANT" in token_set):
+                res = "I need to take my medicine now, please."
+            elif "WATER" in token_set and ("ME" in token_set or "I" in token_set or "WANT" in token_set or "NEED" in token_set):
+                res = "Could I please have a glass of water?"
+            elif "FOOD" in token_set and ("ME" in token_set or "I" in token_set or "WANT" in token_set or "NEED" in token_set):
+                res = "I would like to have some food, please."
+            elif "RESTROOM" in token_set and ("WHERE" in token_set or "ME" in token_set or "I" in token_set):
+                res = "Excuse me, where is the nearest restroom?"
+            elif "HELP" in token_set and ("ME" in token_set or "I" in token_set):
+                res = "Please help me!"
             else:
-                if not text.endswith((".", "!", "?")):
-                    text += "."
-            res = text
+                # Generalized linguistic grammar rules:
+                words = []
+                for w in cleaned:
+                    if w in ("ME", "I"):
+                        words.append("I")
+                    elif w == "YOU":
+                        words.append("you")
+                    elif w == "WANT":
+                        words.append("would like")
+                    elif w == "NEED":
+                        words.append("need")
+                    elif w in ("TABLET", "MEDICINE"):
+                        words.append("my medicine")
+                    elif w == "FOOD":
+                        words.append("some food")
+                    elif w == "SLEEP":
+                        words.append("to rest and sleep")
+                    elif w in ("RESTROOM", "BATHROOM", "TOILET"):
+                        words.append("the restroom")
+                    elif w == "DOCTOR":
+                        words.append("a doctor")
+                    elif w == "HOUSE":
+                        words.append("home")
+                    elif w == "BOOK":
+                        words.append("a book")
+                    elif w == "SICK":
+                        words.append("sick")
+                    elif w == "GOOD":
+                        words.append("good")
+                    elif w == "BAD":
+                        words.append("bad")
+                    elif w == "WATER":
+                        words.append("water")
+                    elif w == "HELP":
+                        words.append("help")
+                    elif w == "PLEASE":
+                        words.append("please")
+                    else:
+                        words.append(w.lower())
+                        
+                text = " ".join(words)
+                if text.startswith("I ") and not any(text.startswith(f"I {v}") for v in ["am", "would like", "need", "have", "can", "will", "love", "want", "go", "play", "see", "read", "work"]):
+                    parts = text.split(" ", 1)
+                    rest = parts[1].strip()
+                    adjectives = {"sick", "hungry", "thirsty", "tired", "fine", "good", "bad", "happy", "sad", "okay", "busy", "ready"}
+                    locations = {"house", "home", "hospital", "work", "school", "room", "clinic"}
+                    items = {"water", "some food", "food", "medicine", "my medicine", "tablet", "a book", "book", "a doctor", "doctor"}
+                    
+                    if any(rest.startswith(a) for a in adjectives):
+                        text = f"I am {rest}"
+                    elif rest in ("home", "house", "my home", "my house"):
+                        text = "I am at home"
+                    elif any(rest.startswith(loc) for loc in locations):
+                        text = f"I am at {rest}"
+                    elif any(rest.startswith(it) for it in items):
+                        text = f"I would like {rest}"
+                    else:
+                        text = f"I am with {rest}"
+                elif text.startswith("you ") and not any(text.startswith(f"you {v}") for v in ["are", "would like", "need", "have", "can"]):
+                    parts = text.split(" ", 1)
+                    text = f"You are {parts[1]}"
+                    
+                text = text[0].upper() + text[1:] if text else ""
+                
+                if text.lower().startswith(("where", "what", "when", "why", "who", "how", "do you", "would you", "is", "could")):
+                    if not text.endswith("?"):
+                        text += "?"
+                elif text.lower().startswith(("please help", "help", "hello", "goodbye", "i love you")):
+                    if not text.endswith("!"):
+                        text += "!"
+                else:
+                    if not text.endswith((".", "!", "?")):
+                        text += "."
+                res = text
 
     if tone == "polite":
         if not res.lower().startswith(("could", "please", "excuse me", "thank you")):
@@ -1466,6 +1562,15 @@ Respond strictly with a valid JSON object in this exact schema:
   ]
 }}"""
 
+    if not GEMINI_API_KEY or len(GEMINI_API_KEY) < 15:
+        fallback_sent = polish_asl_sentence(tokens, tone=tone)
+        return {
+            "sentence": fallback_sent,
+            "alternatives": [fallback_sent],
+            "source": "local-rule-fast",
+            "model": "rule-based"
+        }
+
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={GEMINI_API_KEY}"
     payload = {
         "contents": [{
@@ -1484,7 +1589,7 @@ Respond strictly with a valid JSON object in this exact schema:
             data=json.dumps(payload).encode('utf-8'),
             headers={'Content-Type': 'application/json'}
         )
-        with urllib.request.urlopen(req, timeout=5.0) as response:
+        with urllib.request.urlopen(req, timeout=2.0) as response:
             res = json.loads(response.read().decode('utf-8'))
             text_resp = res['candidates'][0]['content']['parts'][0]['text']
             parsed = json.loads(text_resp)
@@ -1502,7 +1607,7 @@ Respond strictly with a valid JSON object in this exact schema:
         return {
             "sentence": fallback_sent,
             "alternatives": [fallback_sent],
-            "source": f"local-rule-fallback",
+            "source": "local-rule-fallback",
             "model": "rule-based"
         }
 
@@ -1562,6 +1667,7 @@ def api_polish_sentence():
         "tokens_count": len(tokens),
         "source": "gemini-2.5-flash" if (use_ai and GEMINI_API_KEY) else "rule-based"
     })
+
 
 @app.route('/api/custom_gestures/capture_live', methods=['GET'])
 def api_capture_live_landmarks():

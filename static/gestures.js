@@ -457,6 +457,19 @@ const WORD_DATABASE = [
 
     // Daily Needs & Health (Micro-Signs)
     { 
+        id: 'doctor', 
+        word: 'DOCTOR', 
+        category: 'Essentials', 
+        emoji: '🩺', 
+        description: 'Doctor / Physician / Medical', 
+        meaning: 'A qualified practitioner of medicine; physician or healthcare specialist.',
+        howToSign: 'Place dominant bent hand/fingertips (curved M-hand or D-hand) tapping twice against the inside of your non-dominant wrist (mimicking checking a radial pulse).',
+        exampleSentence: '"Please call a doctor right away, I need medical assistance."',
+        culturalNote: 'Iconic sign mimicking a doctor feeling a patient’s pulse on their wrist.',
+        sequence: ['D', 'O', 'C', 'T', 'O', 'R'], 
+        tip: 'Tap bent fingertips on inside of wrist twice' 
+    },
+    { 
         id: 'tablet', 
         word: 'TABLET', 
         category: 'Essentials', 

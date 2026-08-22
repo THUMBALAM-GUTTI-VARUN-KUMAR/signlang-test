@@ -153,9 +153,18 @@
                                 <div class="conf-bar-bg">
                                     <div class="conf-bar-fill" id="conf-bar"></div>
                                 </div>
+                                <div class="cooldown-timer-bar-wrap" id="cooldown-timer-wrap" style="display: none; margin-top: 10px; padding: 6px 10px; background: rgba(139, 92, 246, 0.12); border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.3);">
+                                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #c4b5fd; margin-bottom: 4px; font-weight: 600;">
+                                        <span><i class="fa-solid fa-hourglass-half fa-spin"></i> 3s Gesture Pacing Buffer</span>
+                                        <span id="cooldown-timer-text">Next sign in 3.0s</span>
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.1); border-radius: 999px; height: 5px; overflow: hidden;">
+                                        <div id="cooldown-timer-bar" style="height: 100%; width: 100%; background: linear-gradient(90deg, #ec4899, #8b5cf6); transition: width 0.15s linear;"></div>
+                                    </div>
+                                </div>
                                 <div class="meta-help" id="meta-help-text">
                                     <i class="fa-solid fa-circle-info"></i>
-                                    <span>Hold any word gesture steady to auto-speak and add to sentence!</span>
+                                    <span>Hold gesture steady to commit. 3s pacing gap prevents accidental transition signs!</span>
                                 </div>
                             </div>
                         </div>
