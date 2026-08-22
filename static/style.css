@@ -3802,3 +3802,365 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* ==========================================
+   LIGHT / WHITE THEME STYLES (SignAI White Mode)
+   ========================================== */
+body.light-theme,
+[data-theme="light"] {
+    --bg-main: #f8fafc;
+    --bg-card: rgba(255, 255, 255, 0.95);
+    --bg-card-hover: rgba(241, 245, 249, 0.98);
+    --border-color: rgba(203, 213, 225, 0.75);
+    --border-accent: rgba(99, 102, 241, 0.45);
+    
+    --primary: #4f46e5;
+    --primary-glow: rgba(79, 70, 229, 0.2);
+    --primary-light: #6366f1;
+    
+    --emerald: #059669;
+    --emerald-glow: rgba(5, 150, 105, 0.2);
+    
+    --amber: #d97706;
+    --danger: #dc2626;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --text-secondary: #334155;
+    background-color: #f8fafc;
+    color: #0f172a;
+}
+
+body.light-theme .glow-orb {
+    opacity: 0.12;
+}
+
+body.light-theme .app-header {
+    background: #ffffff;
+    border-color: rgba(226, 232, 240, 0.9);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+body.light-theme .card {
+    background: #ffffff;
+    border-color: rgba(226, 232, 240, 0.9);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+body.light-theme .brand-text h1 {
+    color: #0f172a;
+}
+
+body.light-theme .brand-text h1 span {
+    color: #4f46e5;
+}
+
+body.light-theme .brand-text p {
+    color: #64748b;
+}
+
+body.light-theme .mode-tabs {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+}
+
+body.light-theme .tab-btn {
+    color: #64748b;
+}
+
+body.light-theme .tab-btn:hover {
+    color: #0f172a;
+}
+
+body.light-theme .tab-btn.active {
+    background: #4f46e5;
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+}
+
+body.light-theme .status-badge {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #334155;
+}
+
+body.light-theme .btn-portal-link {
+    background: #f1f5f9;
+    color: #334155;
+    border-color: #e2e8f0;
+}
+
+body.light-theme .btn-portal-link:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+body.light-theme .btn-icon {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #475569;
+}
+
+body.light-theme .btn-icon:hover {
+    background: rgba(99, 102, 241, 0.1);
+    border-color: #6366f1;
+    color: #4f46e5;
+}
+
+body.light-theme .mode-toggle-btn {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #475569;
+}
+
+body.light-theme .mode-toggle-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+body.light-theme .mode-toggle-btn.active {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+}
+
+body.light-theme .auto-speak-toggle {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #334155;
+}
+
+body.light-theme .char-display-box {
+    background: linear-gradient(145deg, #eef2ff, #f0fdf4);
+    border-color: rgba(99, 102, 241, 0.35);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.12);
+}
+
+body.light-theme .char-value {
+    color: #1e1b4b;
+    text-shadow: none;
+}
+
+body.light-theme .char-label {
+    color: #64748b;
+}
+
+body.light-theme .conf-bar-bg {
+    background: #e2e8f0;
+}
+
+body.light-theme .cooldown-timer-bar-wrap {
+    background: rgba(99, 102, 241, 0.08) !important;
+    border-color: rgba(99, 102, 241, 0.25) !important;
+}
+
+body.light-theme .sentence-box,
+body.light-theme .sentence-textarea,
+body.light-theme textarea,
+body.light-theme input[type="text"],
+body.light-theme select {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+
+body.light-theme .sentence-box:focus-within,
+body.light-theme .sentence-textarea:focus,
+body.light-theme textarea:focus,
+body.light-theme input[type="text"]:focus,
+body.light-theme select:focus {
+    background: #ffffff;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+body.light-theme .suggest-chip {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #1e293b;
+}
+
+body.light-theme .suggest-chip:hover {
+    background: #eef2ff;
+    border-color: #6366f1;
+    color: #4f46e5;
+}
+
+body.light-theme .cheat-chip {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #1e293b;
+}
+
+body.light-theme .cheat-chip:hover {
+    background: #eef2ff;
+    border-color: #6366f1;
+    color: #4f46e5;
+}
+
+body.light-theme .gesture-chip {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #0f172a;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+body.light-theme .dialog-bubble.deaf {
+    background: linear-gradient(135deg, #4f46e5, #6366f1);
+    color: #ffffff;
+}
+
+body.light-theme .dialog-bubble.hearing {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #0f172a;
+}
+
+body.light-theme .dialog-welcome {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #475569;
+}
+
+body.light-theme .custom-gesture-item {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    color: #0f172a;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+body.light-theme .practice-word-card {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    color: #0f172a;
+}
+
+body.light-theme .vault-card,
+body.light-theme .vault-create-card,
+body.light-theme .vault-list-card {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    color: #0f172a;
+}
+
+body.light-theme .vault-item {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #0f172a;
+}
+
+body.light-theme .vault-item:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+body.light-theme .decrypted-message-body {
+    background: #f8fafc;
+    border-color: rgba(5, 150, 105, 0.3);
+    color: #0f172a;
+}
+
+body.light-theme .modal-container {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    color: #0f172a;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+body.light-theme .modal-header {
+    border-bottom-color: #e2e8f0;
+}
+
+body.light-theme .asl-chart-card {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+body.light-theme .asl-letter-box {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #0f172a;
+}
+
+body.light-theme .card-header {
+    border-bottom-color: #e2e8f0;
+}
+
+body.light-theme .card-title {
+    color: #0f172a;
+}
+
+body.light-theme .btn-secondary {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #334155;
+}
+
+body.light-theme .btn-secondary:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+body.light-theme .landing-header {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(226, 232, 240, 0.85);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+body.light-theme .nav-link {
+    color: #475569;
+}
+
+body.light-theme .nav-link:hover {
+    color: #4f46e5;
+}
+
+body.light-theme .hero-badge {
+    background: #eef2ff;
+    border-color: rgba(99, 102, 241, 0.3);
+    color: #4f46e5;
+}
+
+body.light-theme .landing-hero h1 {
+    color: #0f172a;
+}
+
+body.light-theme .landing-hero p {
+    color: #475569;
+}
+
+body.light-theme .feature-card,
+body.light-theme .step-card,
+body.light-theme .tech-card,
+body.light-theme .stat-card,
+body.light-theme .dictionary-card {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    color: #0f172a;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+body.light-theme .feature-card p,
+body.light-theme .step-card p,
+body.light-theme .tech-card p {
+    color: #64748b;
+}
+
+body.light-theme .landing-cta-banner {
+    background: linear-gradient(135deg, #eef2ff, #f0fdf4);
+    border-color: rgba(99, 102, 241, 0.3);
+    color: #0f172a;
+}
+
+body.light-theme .landing-cta-banner h2 {
+    color: #1e1b4b;
+}
+
+body.light-theme .landing-cta-banner p {
+    color: #475569;
+}
+
+body.light-theme .landing-footer {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    color: #64748b;
+}

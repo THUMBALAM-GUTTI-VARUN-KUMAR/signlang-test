@@ -1,5 +1,46 @@
 document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
+    // THEME MANAGEMENT (LIGHT / WHITE & DARK)
+    // ==========================================
+    const btnThemeToggle = document.getElementById('btn-theme-toggle');
+    const themeToggleIcon = document.getElementById('theme-toggle-icon');
+
+    function applyTheme(theme) {
+        if (theme === 'light') {
+            document.body.classList.add('light-theme');
+            document.body.classList.remove('dark-theme');
+            document.documentElement.setAttribute('data-theme', 'light');
+            if (themeToggleIcon) {
+                themeToggleIcon.className = 'fa-solid fa-moon';
+            }
+            if (btnThemeToggle) {
+                btnThemeToggle.title = 'Switch to Dark Theme';
+            }
+        } else {
+            document.body.classList.remove('light-theme');
+            document.body.classList.add('dark-theme');
+            document.documentElement.setAttribute('data-theme', 'dark');
+            if (themeToggleIcon) {
+                themeToggleIcon.className = 'fa-solid fa-sun';
+            }
+            if (btnThemeToggle) {
+                btnThemeToggle.title = 'Switch to White / Light Theme';
+            }
+        }
+        localStorage.setItem('signai_theme', theme);
+    }
+
+    const savedTheme = localStorage.getItem('signai_theme') || 'dark';
+    applyTheme(savedTheme);
+
+    if (btnThemeToggle) {
+        btnThemeToggle.addEventListener('click', () => {
+            const nextTheme = document.body.classList.contains('light-theme') ? 'dark' : 'light';
+            applyTheme(nextTheme);
+        });
+    }
+
+    // ==========================================
     // 1. TAB SWITCHING LOGIC
     // ==========================================
     const tabBtns = document.querySelectorAll('.tab-btn');

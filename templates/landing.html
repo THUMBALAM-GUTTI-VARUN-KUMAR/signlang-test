@@ -11,6 +11,15 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('signai_theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.documentElement.classList.add('light-theme');
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
 </head>
 <body class="dark-theme landing-body">
     <!-- Ambient glowing background orbs -->
@@ -39,6 +48,9 @@
             </nav>
 
             <div class="landing-nav-actions">
+                <button class="btn-icon" id="btn-theme-toggle" title="Toggle White / Dark Theme">
+                    <i class="fa-solid fa-sun" id="theme-toggle-icon"></i>
+                </button>
                 <div class="status-badge-inline live-pill">
                     <span class="status-dot green pulse"></span>
                     <span>Engine Ready</span>
@@ -443,5 +455,36 @@
             </div>
         </div>
     </footer>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnThemeToggle = document.getElementById('btn-theme-toggle');
+            const themeToggleIcon = document.getElementById('theme-toggle-icon');
+
+            function applyTheme(theme) {
+                if (theme === 'light') {
+                    document.body.classList.add('light-theme');
+                    document.body.classList.remove('dark-theme');
+                    document.documentElement.setAttribute('data-theme', 'light');
+                    if (themeToggleIcon) themeToggleIcon.className = 'fa-solid fa-moon';
+                } else {
+                    document.body.classList.remove('light-theme');
+                    document.body.classList.add('dark-theme');
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    if (themeToggleIcon) themeToggleIcon.className = 'fa-solid fa-sun';
+                }
+                localStorage.setItem('signai_theme', theme);
+            }
+
+            const savedTheme = localStorage.getItem('signai_theme') || 'dark';
+            applyTheme(savedTheme);
+
+            if (btnThemeToggle) {
+                btnThemeToggle.addEventListener('click', () => {
+                    const nextTheme = document.body.classList.contains('light-theme') ? 'dark' : 'light';
+                    applyTheme(nextTheme);
+                });
+            }
+        });
+    </script>
 </body>
 </html>

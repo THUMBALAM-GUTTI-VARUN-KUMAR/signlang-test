@@ -11,6 +11,15 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('signai_theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.documentElement.classList.add('light-theme');
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
 </head>
 <body class="dark-theme">
     <!-- Ambient glowing backgrounds -->
@@ -67,6 +76,9 @@
                     <span class="status-dot green pulse"></span>
                     <span id="live-indicator-text">System Active</span>
                 </div>
+                <button class="btn-icon" id="btn-theme-toggle" title="Toggle White / Dark Theme">
+                    <i class="fa-solid fa-sun" id="theme-toggle-icon"></i>
+                </button>
                 <button class="btn-icon" id="btn-info-modal" title="ASL Gesture Reference Chart">
                     <i class="fa-regular fa-circle-question"></i>
                 </button>
